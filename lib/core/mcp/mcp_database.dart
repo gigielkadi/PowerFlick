@@ -1,20 +1,29 @@
 import 'package:logger/logger.dart';
 import 'package:postgres/postgres.dart';
 import 'dart:convert';
+import '../constants/k_supabase.dart';
 
 /// Database service for the MCP server
 class McpDatabase {
   final String connectionString;
   final Logger _logger = Logger();
-  PostgreSQLConnection? _connection;
+  late PostgreSQLConnection _connection;
   bool _isConnected = false;
 
   /// Whether the database is connected
   bool get isConnected => _isConnected;
 
   McpDatabase({
-    this.connectionString = 'postgresql://postgres:VIItnfHk7nPtmnQS@db.svrsdxptcuimdjtsimif.supabase.co:5432/postgres',
-  });
+    this.connectionString = KSupabase.dbConnectionString,
+  }) {
+    _connection = PostgreSQLConnection(
+      '127.0.0.1',
+      54322,
+      'postgres',
+      username: 'postgres',
+      password: 'postgres',
+    );
+  }
 
   /// Parse the connection string into components
   Map<String, dynamic> _parseConnectionString() {
@@ -29,103 +38,43 @@ class McpDatabase {
   }
 
   /// Connect to the database
-  Future<bool> connect() async {
-    if (_isConnected) {
-      _logger.i('Already connected to database');
-      return true;
-    }
-
-    try {
-      final params = _parseConnectionString();
-      _connection = PostgreSQLConnection(
-        params['host'],
-        params['port'],
-        params['database'],
-        username: params['username'],
-        password: params['password'],
-        useSSL: true,
-      );
-
-      await _connection!.open();
+  Future<void> connect() async {
+    if (!_isConnected) {
+      await _connection.open();
       _isConnected = true;
-      _logger.i('Connected to database at ${params['host']}');
-      return true;
-    } catch (e) {
-      _logger.e('Failed to connect to database: $e');
-      return false;
     }
   }
 
   /// Disconnect from the database
   Future<void> disconnect() async {
-    if (_isConnected && _connection != null) {
-      await _connection!.close();
+    if (_isConnected) {
+      await _connection.close();
       _isConnected = false;
-      _logger.i('Disconnected from database');
     }
   }
 
   /// Execute a query that returns rows
-  Future<List<Map<String, dynamic>>> query(
-    String sql, {
-    Map<String, dynamic>? substitutionValues,
-  }) async {
-    if (!_isConnected || _connection == null) {
-      throw Exception('Not connected to database');
-    }
-
-    try {
-      final results = await _connection!.mappedResultsQuery(
-        sql,
-        substitutionValues: substitutionValues,
-      );
-
-      // Convert the results to a simpler format
-      final List<Map<String, dynamic>> mappedResults = [];
-      for (final row in results) {
-        final Map<String, dynamic> mappedRow = {};
-        row.forEach((tableName, values) {
-          mappedRow.addAll(values);
-        });
-        mappedResults.add(mappedRow);
-      }
-
-      return mappedResults;
-    } catch (e) {
-      _logger.e('Query error: $e');
-      rethrow;
-    }
+  Future<List<Map<String, dynamic>>> query(String sql) async {
+    await connect();
+    final results = await _connection.mappedResultsQuery(sql);
+    return results.map((row) => row.values.first).toList();
   }
 
   /// Execute a query that doesn't return rows
-  Future<int> execute(
-    String sql, {
-    Map<String, dynamic>? substitutionValues,
-  }) async {
-    if (!_isConnected || _connection == null) {
-      throw Exception('Not connected to database');
-    }
-
-    try {
-      return await _connection!.execute(
-        sql,
-        substitutionValues: substitutionValues,
-      );
-    } catch (e) {
-      _logger.e('Execute error: $e');
-      rethrow;
-    }
+  Future<void> execute(String sql) async {
+    await connect();
+    await _connection.execute(sql);
   }
 
   /// Store a message in the database
   Future<void> storeMessage(Map<String, dynamic> message) async {
-    if (!_isConnected || _connection == null) {
+    if (!_isConnected) {
       _logger.w('Cannot store message: not connected to database');
       return;
     }
 
     try {
-      await _connection!.execute(
+      await _connection.execute(
         'INSERT INTO mcp_messages (type, sender_id, content, timestamp) VALUES (@type, @senderId, @content, @timestamp)',
         substitutionValues: {
           'type': message['type'],
@@ -146,7 +95,7 @@ class McpDatabase {
     String? type,
     String? senderId,
   }) async {
-    if (!_isConnected || _connection == null) {
+    if (!_isConnected) {
       throw Exception('Not connected to database');
     }
 
@@ -165,13 +114,13 @@ class McpDatabase {
       }
 
       if (conditions.isNotEmpty) {
-        sql += ' WHERE ' + conditions.join(' AND ');
+        sql += ' WHERE ${conditions.join(' AND ')}';
       }
 
       sql += ' ORDER BY timestamp DESC LIMIT @limit';
       substitutionValues['limit'] = limit;
 
-      final results = await _connection!.mappedResultsQuery(
+      final results = await _connection.mappedResultsQuery(
         sql,
         substitutionValues: substitutionValues,
       );
@@ -210,19 +159,19 @@ class McpDatabase {
 
   /// Create the necessary tables if they don't exist
   Future<void> createTablesIfNeeded() async {
-    if (!_isConnected || _connection == null) {
+    if (!_isConnected) {
       throw Exception('Not connected to database');
     }
 
     try {
       // Check if the table already exists
-      final tableExists = await _connection!.mappedResultsQuery(
+      final tableExists = await _connection.mappedResultsQuery(
         "SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'mcp_messages')",
       );
 
       final exists = tableExists.first.values.first['exists'] as bool;
       if (!exists) {
-        await _connection!.execute('''
+        await _connection.execute('''
           CREATE TABLE mcp_messages (
             id SERIAL PRIMARY KEY,
             type VARCHAR(50) NOT NULL,
@@ -232,15 +181,15 @@ class McpDatabase {
           )
         ''');
         
-        await _connection!.execute(
+        await _connection.execute(
           'CREATE INDEX idx_mcp_messages_timestamp ON mcp_messages (timestamp DESC)',
         );
         
-        await _connection!.execute(
+        await _connection.execute(
           'CREATE INDEX idx_mcp_messages_sender_id ON mcp_messages (sender_id)',
         );
         
-        await _connection!.execute(
+        await _connection.execute(
           'CREATE INDEX idx_mcp_messages_type ON mcp_messages (type)',
         );
         

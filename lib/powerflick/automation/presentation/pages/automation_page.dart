@@ -5,7 +5,7 @@ import 'emergency_mode_page.dart';
 import 'work_from_home_mode_page.dart';
 
 class AutomationPage extends StatefulWidget {
-  const AutomationPage({Key? key}) : super(key: key);
+  const AutomationPage({super.key});
 
   @override
   State<AutomationPage> createState() => _AutomationPageState();

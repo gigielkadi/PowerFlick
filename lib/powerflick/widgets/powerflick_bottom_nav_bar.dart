@@ -1,15 +1,14 @@
 import 'package:flutter/material.dart';
-import '../auth/presentation/pages/add_device_page.dart';
 
 class PowerFlickBottomNavBar extends StatelessWidget {
   final int currentIndex;
   final ValueChanged<int>? onTap;
 
   const PowerFlickBottomNavBar({
-    Key? key,
+    super.key,
     required this.currentIndex,
     this.onTap,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {

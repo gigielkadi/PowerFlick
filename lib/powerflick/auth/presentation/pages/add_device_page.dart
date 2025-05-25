@@ -3,7 +3,7 @@ import '../../../../core/constants/k_sizes.dart';
 import '../../../../core/constants/k_colors.dart';
 
 class AddDevicePage extends StatelessWidget {
-  const AddDevicePage({Key? key}) : super(key: key);
+  const AddDevicePage({super.key});
 
   @override
   Widget build(BuildContext context) {

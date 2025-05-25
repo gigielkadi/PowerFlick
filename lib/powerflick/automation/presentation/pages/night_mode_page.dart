@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import '../../../widgets/powerflick_bottom_nav_bar.dart';
 
 class NightModePage extends StatefulWidget {
-  const NightModePage({Key? key}) : super(key: key);
+  const NightModePage({super.key});
 
   @override
   State<NightModePage> createState() => _NightModePageState();

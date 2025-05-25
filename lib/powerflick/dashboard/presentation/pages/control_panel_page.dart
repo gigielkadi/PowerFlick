@@ -1,16 +1,11 @@
 import 'package:flutter/material.dart';
-import 'dart:math';
-import 'package:tabler_icons/tabler_icons.dart';
-import '../../../../core/constants/k_sizes.dart';
-import '../../../presentation/rooms/rooms_page.dart';
 import '../../../home/presentation/pages/my_home_page_control.dart';
 import '../pages/dashboard_page.dart';
 import '../../../automation/presentation/pages/automation_page.dart';
-import '../../../presentation/rooms/my_rooms_page.dart' show MultiLayerCircularProgressPainter;
 import '../../../widgets/powerflick_bottom_nav_bar.dart';
 
 class ControlPanelPage extends StatelessWidget {
-  const ControlPanelPage({Key? key}) : super(key: key);
+  const ControlPanelPage({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -372,7 +367,7 @@ class ThreeLayerCircularIndicator extends StatelessWidget {
   final double fontSizeTotal;
   final String centerLabel;
   const ThreeLayerCircularIndicator({
-    Key? key,
+    super.key,
     required this.percent,
     required this.currentKwh,
     required this.totalKwh,
@@ -380,7 +375,7 @@ class ThreeLayerCircularIndicator extends StatelessWidget {
     this.fontSizeKwh = 13,
     this.fontSizeTotal = 12,
     this.centerLabel = '',
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {

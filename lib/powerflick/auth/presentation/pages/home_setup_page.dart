@@ -7,7 +7,7 @@ import 'connect_smart_plugs_page.dart';
 class HomeSetupPage extends StatefulWidget {
   final String? userName;
 
-  const HomeSetupPage({Key? key, this.userName}) : super(key: key);
+  const HomeSetupPage({super.key, this.userName});
 
   @override
   State<HomeSetupPage> createState() => _HomeSetupPageState();
@@ -46,7 +46,7 @@ class _HomeSetupPageState extends State<HomeSetupPage> {
             .eq('id', user.id)
             .single();
           
-          if (response != null && mounted) {
+          if (mounted) {
             print('Fetched user data: $response');
             
             // If there's existing room data, update the UI

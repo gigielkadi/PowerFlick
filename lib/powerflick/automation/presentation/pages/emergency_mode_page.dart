@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import '../../../widgets/powerflick_bottom_nav_bar.dart';
 
 class EmergencyModePage extends StatefulWidget {
-  const EmergencyModePage({Key? key}) : super(key: key);
+  const EmergencyModePage({super.key});
 
   @override
   State<EmergencyModePage> createState() => _EmergencyModePageState();

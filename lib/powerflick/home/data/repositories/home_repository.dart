@@ -15,7 +15,7 @@ class HomeRepository {
     try {
       final response = await _client.from('rooms').select('*');
       
-      if (response == null || response.isEmpty) {
+      if (response.isEmpty) {
         // If no rooms exist yet, seed with default data
         await _seedDefaultRooms();
         return Room.getDefaultRooms();
@@ -75,10 +75,6 @@ class HomeRepository {
           .select('*')
           .eq('room_id', roomId);
       
-      if (response == null) {
-        return [];
-      }
-      
       return response.map((json) => Device.fromJson(json)).toList().cast<Device>();
     } catch (e) {
       _logger.e('Error fetching devices for room: $e');
@@ -91,7 +87,7 @@ class HomeRepository {
     try {
       final response = await _client.from('devices').select('*');
       
-      if (response == null || response.isEmpty) {
+      if (response.isEmpty) {
         // If no devices exist yet, seed with sample data
         await _seedSampleDevices();
         return Device.getSampleDevices();

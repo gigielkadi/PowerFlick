@@ -6,7 +6,7 @@ import '../../domain/models/room.dart';
 import 'room_page.dart';
 
 class RoomsListPage extends ConsumerWidget {
-  const RoomsListPage({Key? key}) : super(key: key);
+  const RoomsListPage({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -131,7 +131,7 @@ class RoomsListPage extends ConsumerWidget {
                   ),
                 ),
               );
-            }).toList(),
+            }),
           ],
         ),
       ),

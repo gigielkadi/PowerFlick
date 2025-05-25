@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import '../../../widgets/powerflick_bottom_nav_bar.dart';
 
 class HolidayModePage extends StatefulWidget {
-  const HolidayModePage({Key? key}) : super(key: key);
+  const HolidayModePage({super.key});
 
   @override
   State<HolidayModePage> createState() => _HolidayModePageState();

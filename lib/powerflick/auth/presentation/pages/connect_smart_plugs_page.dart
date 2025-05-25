@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import '../../../../core/constants/k_colors.dart';
 
 class ConnectSmartPlugsPage extends StatefulWidget {
-  const ConnectSmartPlugsPage({Key? key}) : super(key: key);
+  const ConnectSmartPlugsPage({super.key});
 
   @override
   State<ConnectSmartPlugsPage> createState() => _ConnectSmartPlugsPageState();

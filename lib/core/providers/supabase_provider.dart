@@ -1,7 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-import '../constants/k_supabase.dart';
 
 /// Provider for the Supabase client
 final supabaseProvider = Provider<SupabaseClient>((ref) {

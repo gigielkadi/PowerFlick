@@ -8,9 +8,9 @@ class RoomPage extends ConsumerWidget {
   final String roomId;
   
   const RoomPage({
-    Key? key,
+    super.key,
     required this.roomId,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {

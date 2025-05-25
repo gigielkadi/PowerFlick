@@ -3,7 +3,7 @@ import '../../../presentation/rooms/room_detail_page.dart';
 import '../../../widgets/powerflick_bottom_nav_bar.dart';
 
 class MyHomePageControl extends StatelessWidget {
-  const MyHomePageControl({Key? key}) : super(key: key);
+  const MyHomePageControl({super.key});
 
   @override
   Widget build(BuildContext context) {

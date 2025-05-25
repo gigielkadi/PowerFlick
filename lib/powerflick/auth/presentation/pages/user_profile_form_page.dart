@@ -5,7 +5,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../pages/home_setup_page.dart';
 
 class UserProfileFormPage extends StatefulWidget {
-  const UserProfileFormPage({Key? key}) : super(key: key);
+  const UserProfileFormPage({super.key});
 
   @override
   State<UserProfileFormPage> createState() => _UserProfileFormPageState();

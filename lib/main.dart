@@ -89,10 +89,6 @@ class _SupabaseTestPageState extends State<SupabaseTestPage> {
           .select('table_name')
           .eq('table_schema', 'public');
 
-      if (response == null) {
-        throw Exception('No response from Supabase');
-      }
-
       final List<dynamic> data = response as List<dynamic>;
       return data.map((item) => item['table_name'].toString()).toList();
     } catch (e) {
@@ -109,10 +105,6 @@ class _SupabaseTestPageState extends State<SupabaseTestPage> {
           .eq('table_schema', 'public')
           .eq('table_name', tableName);
 
-      if (response == null) {
-        throw Exception('No response from Supabase');
-      }
-
       return List<Map<String, dynamic>>.from(response as List);
     } catch (e) {
       print('Error fetching table structure: $e');
@@ -127,10 +119,6 @@ class _SupabaseTestPageState extends State<SupabaseTestPage> {
           .select('table_name')
           .eq('table_schema', 'public')
           .limit(1);
-
-      if (response == null) {
-        throw Exception('No response from Supabase');
-      }
 
       if (context.mounted) {
         showDialog(

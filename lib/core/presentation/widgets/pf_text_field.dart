@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:tabler_icons/tabler_icons.dart';
-import '../../constants/k_sizes.dart';
 
 class PFTextField extends StatefulWidget {
   const PFTextField({

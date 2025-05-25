@@ -1,11 +1,10 @@
 import 'package:flutter/material.dart';
 import '../../../../core/constants/k_sizes.dart';
-import '../../../../core/constants/k_colors.dart';
 import 'subscription_plan_page.dart';
 
 class VerificationWaitingPage extends StatelessWidget {
   final String email;
-  const VerificationWaitingPage({Key? key, required this.email}) : super(key: key);
+  const VerificationWaitingPage({super.key, required this.email});
 
   @override
   Widget build(BuildContext context) {

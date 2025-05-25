@@ -3,7 +3,7 @@ import 'room_detail_page.dart';
 import '../../widgets/powerflick_bottom_nav_bar.dart';
 
 class RoomsPage extends StatelessWidget {
-  const RoomsPage({Key? key}) : super(key: key);
+  const RoomsPage({super.key});
 
   @override
   Widget build(BuildContext context) {

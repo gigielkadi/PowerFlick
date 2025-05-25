@@ -1,9 +1,8 @@
 import 'package:flutter/material.dart';
-import '../../../../core/constants/k_sizes.dart';
 import '../../../../core/constants/k_colors.dart';
 
 class SubscriptionPlanPage extends StatelessWidget {
-  const SubscriptionPlanPage({Key? key}) : super(key: key);
+  const SubscriptionPlanPage({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -242,7 +241,7 @@ class SubscriptionPlanPage extends StatelessWidget {
 class BulletPoint extends StatelessWidget {
   final String text;
 
-  const BulletPoint({Key? key, required this.text}) : super(key: key);
+  const BulletPoint({super.key, required this.text});
 
   @override
   Widget build(BuildContext context) {

@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import '../../../widgets/powerflick_bottom_nav_bar.dart';
 
 class WorkFromHomeModePage extends StatefulWidget {
-  const WorkFromHomeModePage({Key? key}) : super(key: key);
+  const WorkFromHomeModePage({super.key});
 
   @override
   State<WorkFromHomeModePage> createState() => _WorkFromHomeModePageState();

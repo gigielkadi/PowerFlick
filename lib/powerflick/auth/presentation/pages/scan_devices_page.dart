@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import '../../../../core/constants/k_colors.dart';
 
 class ScanDevicesPage extends StatefulWidget {
-  const ScanDevicesPage({Key? key}) : super(key: key);
+  const ScanDevicesPage({super.key});
 
   @override
   State<ScanDevicesPage> createState() => _ScanDevicesPageState();

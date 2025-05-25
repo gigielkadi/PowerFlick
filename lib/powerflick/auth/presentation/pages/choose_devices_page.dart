@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 class ChooseDevicesPage extends StatelessWidget {
-  const ChooseDevicesPage({Key? key}) : super(key: key);
+  const ChooseDevicesPage({super.key});
 
   @override
   Widget build(BuildContext context) {

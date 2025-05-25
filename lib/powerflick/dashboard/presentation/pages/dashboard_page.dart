@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
 import 'dart:math';
-import '../../../home/presentation/pages/simple_rooms_page.dart';
-import '../../../presentation/rooms/rooms_page.dart';
 import '../../../presentation/rooms/my_rooms_page.dart';
 import '../../../widgets/powerflick_bottom_nav_bar.dart';
 

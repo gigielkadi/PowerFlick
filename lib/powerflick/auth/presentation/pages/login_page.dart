@@ -1,4 +1,3 @@
-import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_sign_in/google_sign_in.dart';
@@ -7,7 +6,6 @@ import './signup_page.dart';
 import '../../../../core/constants/k_sizes.dart';
 import '../../../../core/presentation/widgets/pf_text_field.dart';
 import '../../application/providers.dart';
-import '../../../dashboard/presentation/pages/dashboard_page.dart';
 
 /// Login page for the app
 class LoginPage extends ConsumerStatefulWidget {

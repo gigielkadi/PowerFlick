@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 class RoomDetailPage extends StatefulWidget {
   final String roomName;
   
-  const RoomDetailPage({Key? key, required this.roomName}) : super(key: key);
+  const RoomDetailPage({super.key, required this.roomName});
 
   @override
   State<RoomDetailPage> createState() => _RoomDetailPageState();

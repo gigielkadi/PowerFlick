@@ -2,7 +2,6 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:flutter/foundation.dart';
 import 'package:logger/logger.dart';
 import 'package:uuid/uuid.dart';
 
@@ -35,14 +34,10 @@ class McpServer {
   Future<void> start() async {
     try {
       // Try to connect to the database first
-      final dbConnected = await _database.connect();
-      if (dbConnected) {
-        _logger.i('Connected to database');
-        // Create tables if needed
-        await _database.createTablesIfNeeded();
-      } else {
-        _logger.w('Failed to connect to database, continuing without persistence');
-      }
+      await _database.connect();
+      _logger.i('Connected to database');
+      // Create tables if needed
+      await _database.createTablesIfNeeded();
       
       // Start the WebSocket server
       _server = await HttpServer.bind(host, port);

@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'dart:math';
-import 'room_detail_page.dart';
 import '../../widgets/powerflick_bottom_nav_bar.dart';
 
 class MyRoomsPage extends StatefulWidget {
@@ -161,7 +160,7 @@ class _MyRoomsPageState extends State<MyRoomsPage> {
                           ),
                           const SizedBox(height: 2),
                           Text(
-                            'of ${_totalConsumption} kWh',
+                            'of $_totalConsumption kWh',
                             style: TextStyle(
                               fontSize: 13,
                               color: Colors.grey.shade600,
