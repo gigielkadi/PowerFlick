@@ -415,9 +415,10 @@ class _UserProfileFormPageState extends State<UserProfileFormPage> {
       final user = supabase.auth.currentUser;
       
       if (user != null) {
-        await supabase.from('profiles').upsert({
+        await supabase.from('users').upsert({
           'id': user.id,
-          'name': _nameController.text,
+          'email': user.email,
+          'first_name': _nameController.text,
           'birthdate': _selectedDate.toIso8601String(),
           'home_type': _selectedHomeType,
           'household_size': _peopleCount,

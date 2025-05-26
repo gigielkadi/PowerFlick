@@ -3,6 +3,9 @@ import '../../../../core/constants/k_colors.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'scan_devices_page.dart';
 import 'connect_smart_plugs_page.dart';
+import 'choose_devices_page.dart';
+import 'setup_add_devices_page.dart';
+import 'smart_devices_and_appliances_page.dart';
 
 class HomeSetupPage extends StatefulWidget {
   final String? userName;
@@ -15,8 +18,8 @@ class HomeSetupPage extends StatefulWidget {
 
 class _HomeSetupPageState extends State<HomeSetupPage> {
   final List<Map<String, dynamic>> _roomTypes = [
-    {'name': 'Bedroom', 'icon': Icons.bed, 'selected': true, 'count': 2},
-    {'name': 'Living room', 'icon': Icons.weekend, 'selected': true, 'count': 1},
+    {'name': 'Bedroom', 'icon': Icons.bed, 'selected': false, 'count': 1},
+    {'name': 'Living room', 'icon': Icons.weekend, 'selected': false, 'count': 1},
     {'name': 'Kitchen', 'icon': Icons.kitchen, 'selected': false, 'count': 1},
     {'name': 'Bathroom', 'icon': Icons.bathtub, 'selected': false, 'count': 1},
     {'name': 'Custom', 'icon': Icons.add, 'selected': false, 'count': 1},
@@ -35,58 +38,24 @@ class _HomeSetupPageState extends State<HomeSetupPage> {
   }
 
   void _fetchUserData() async {
-    try {
-      // Attempt to fetch user data from Supabase
-      final user = Supabase.instance.client.auth.currentUser;
-      if (user != null) {
-        try {
-          final response = await Supabase.instance.client
-            .from('profiles')
-            .select('name, rooms')
-            .eq('id', user.id)
-            .single();
-          
-          if (mounted) {
-            print('Fetched user data: $response');
-            
-            // If there's existing room data, update the UI
-            if (response['rooms'] != null) {
-              final List<dynamic> savedRooms = response['rooms'];
-              if (savedRooms.isNotEmpty) {
-                setState(() {
-                  // Reset all rooms to unselected
-                  for (var room in _roomTypes) {
-                    room['selected'] = false;
-                    room['count'] = 1;
-                  }
-                  
-                  // Update with saved room data
-                  for (var savedRoom in savedRooms) {
-                    final index = _roomTypes.indexWhere(
-                      (room) => room['name'] == savedRoom['type']
-                    );
-                    
-                    if (index != -1) {
-                      _roomTypes[index]['selected'] = true;
-                      _roomTypes[index]['count'] = savedRoom['count'];
-                    }
-                  }
-                  
-                  _updateSelectedRooms();
-                });
-              }
-            }
-          }
-        } catch (e) {
-          print('Error fetching profile data: $e');
-        }
-      }
-      
-      // For testing, we'll just use the provided userName or default
-      print('Fetched user data for: ${widget.userName ?? "Gigi"}');
-    } catch (e) {
-      print('Error in _fetchUserData: $e');
+    final user = Supabase.instance.client.auth.currentUser;
+    if (user == null) return;
+    final response = await Supabase.instance.client
+        .from('rooms')
+        .select('type, name')
+        .eq('user_id', user.id);
+    // Group by type and count
+    Map<String, int> roomCounts = {};
+    for (var room in response) {
+      roomCounts[room['type']] = (roomCounts[room['type']] ?? 0) + 1;
     }
+    setState(() {
+      for (var room in _roomTypes) {
+        room['selected'] = roomCounts.containsKey(room['name']);
+        room['count'] = roomCounts[room['name']] ?? 1;
+      }
+      _updateSelectedRooms();
+    });
   }
 
   void _updateSelectedRooms() {
@@ -120,54 +89,29 @@ class _HomeSetupPageState extends State<HomeSetupPage> {
   }
 
   void _saveHomeSetup() async {
-    // Create a list of rooms to save
-    final List<Map<String, dynamic>> roomsToSave = _selectedRooms
-        .map((room) => {
-              'type': room['name'],
-              'count': room['count'],
-            })
-        .toList();
-
-    try {
-      // Save room data to Supabase
-      final user = Supabase.instance.client.auth.currentUser;
-      if (user != null) {
-        try {
-          // First update the homes table
-          await Supabase.instance.client.from('homes').upsert({
-            'user_id': user.id,
-            'rooms': roomsToSave,
-          });
-          
-          // Also update the rooms array in the profiles table
-          await Supabase.instance.client.from('profiles').update({
-            'rooms': roomsToSave,
-          }).eq('id', user.id);
-          
-          print('Rooms saved to database: $roomsToSave');
-        } catch (e) {
-          // Log the error but continue with navigation
-          print('Error saving to database: $e');
-        }
-      } else {
-        // For demo purposes when not logged in
-        print('Demo mode: Saving rooms to database: $roomsToSave');
+    final user = Supabase.instance.client.auth.currentUser;
+    if (user == null) return;
+    // Remove all previous rooms for this user
+    await Supabase.instance.client.from('rooms').delete().eq('user_id', user.id);
+    // Insert new rooms, each with a unique name
+    List<Map<String, dynamic>> roomsToInsert = [];
+    for (var room in _selectedRooms) {
+      for (int i = 1; i <= room['count']; i++) {
+        roomsToInsert.add({
+          'type': room['name'],
+          'name': '${room['name']} $i',
+          'user_id': user.id,
+        });
       }
-
-      // Navigate to control panel regardless of database success
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Home setup completed!')),
-        );
-        // Use pushReplacementNamed to ensure proper navigation
-        Navigator.pushReplacementNamed(context, '/control-panel');
-      }
-    } catch (e) {
-      print('Error in home setup: $e');
-      // Still try to navigate even if there's an error
-      if (mounted) {
-        Navigator.pushReplacementNamed(context, '/control-panel');
-      }
+    }
+    if (roomsToInsert.isNotEmpty) {
+      await Supabase.instance.client.from('rooms').insert(roomsToInsert);
+    }
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Home setup completed!')),
+      );
+      Navigator.pushReplacementNamed(context, '/control-panel');
     }
   }
 
@@ -490,50 +434,19 @@ class _HomeSetupPageState extends State<HomeSetupPage> {
                 
                 const SizedBox(height: 12),
                 
-                // Scan Devices Button
-                _buildActionButton(
-                  title: 'Scan Devices',
-                  subtitle: 'Connect smart devices automatically',
-                  icon: Icons.wifi,
-                  iconColor: KColors.primary,
-                  onTap: () {
-                    // Navigate to scan devices page
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => const ScanDevicesPage(),
-                      ),
-                    );
-                  },
-                ),
-                
-                const SizedBox(height: 12),
-                
-                // Connect Smart Plugs Button
-                _buildActionButton(
-                  title: 'Connect Smart Plugs',
-                  subtitle: 'Connect non-smart devices',
-                  icon: Icons.power_outlined,
-                  iconColor: KColors.primary,
-                  onTap: () {
-                    // Navigate to connect smart plugs page
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => const ConnectSmartPlugsPage(),
-                      ),
-                    );
-                  },
-                ),
-                
-                const SizedBox(height: 20),
-                
                 // Continue button
                 SizedBox(
                   width: double.infinity,
                   height: 50,
                   child: ElevatedButton(
-                    onPressed: _saveHomeSetup,
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const SmartDevicesAndAppliancesPage(),
+                        ),
+                      );
+                    },
                     style: ElevatedButton.styleFrom(
                       backgroundColor: KColors.primary,
                       foregroundColor: Colors.white,
@@ -551,68 +464,6 @@ class _HomeSetupPageState extends State<HomeSetupPage> {
                     ),
                   ),
                 ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-  
-  Widget _buildActionButton({
-    required String title,
-    required String subtitle,
-    required IconData icon,
-    required VoidCallback onTap,
-    Color iconColor = Colors.green,
-  }) {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(16),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            child: Row(
-              children: [
-                Container(
-                  width: 40,
-                  height: 40,
-                  decoration: const BoxDecoration(
-                    color: Color(0xFFF5F5F5),
-                    shape: BoxShape.circle,
-                  ),
-                  child: Icon(icon, color: iconColor),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        title,
-                        style: const TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w500,
-                          color: Colors.black87,
-                        ),
-                      ),
-                      Text(
-                        subtitle,
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: Colors.grey.shade600,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const Icon(Icons.chevron_right, color: Colors.grey),
               ],
             ),
           ),

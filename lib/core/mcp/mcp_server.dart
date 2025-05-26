@@ -35,9 +35,9 @@ class McpServer {
     try {
       // Try to connect to the database first
       await _database.connect();
-      _logger.i('Connected to database');
-      // Create tables if needed
-      await _database.createTablesIfNeeded();
+        _logger.i('Connected to database');
+        // Create tables if needed
+        await _database.createTablesIfNeeded();
       
       // Start the WebSocket server
       _server = await HttpServer.bind(host, port);
