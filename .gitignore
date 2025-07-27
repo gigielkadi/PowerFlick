@@ -60,3 +60,22 @@ app.*.map.json
 # Generated files
 *.g.dart
 *.freezed.dart
+# Python virtual environments
+venv/
+__pycache__/
+
+# macOS system files
+.DS_Store
+
+# Installer files
+*.dmg
+
+# Logs and caches
+*.log
+
+# Flutter build artifacts
+build/
+.dart_tool/
+.packages
+pubspec.lock
+.flutter-plugins*
