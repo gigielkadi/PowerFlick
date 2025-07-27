@@ -1,4 +1,7 @@
 # PowerFlick
+<<<<<<< HEAD
+
+PowerFlick is an IoT-based smart energy management system that enables real-time monitoring and remote control of electrical appliances. Built using ESP32, sensors, and a custom mobile interface, it helps users reduce energy waste and optimize power consumption through data-driven insights.
 
 A modern energy management application that helps users monitor and control their home's energy consumption. Built with Flutter and Supabase.
 
@@ -65,3 +68,6 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - Flutter team for the amazing framework
 - Supabase for the backend infrastructure
 - All contributors who have helped shape this project
+=======
+PowerFlick is an IoT-based smart energy management system that enables real-time monitoring and remote control of electrical appliances. Built using ESP32, sensors, and a custom mobile interface, it helps users reduce energy waste and optimize power consumption through data-driven insights.
+>>>>>>> c8379b5bc11d062b9edfa7b9b3fbd75166f7dc3e
