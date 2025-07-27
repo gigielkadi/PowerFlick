@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:google_sign_in/google_sign_in.dart';
+// import 'package:google_sign_in/google_sign_in.dart'; // Removed due to dependency conflicts
 import './signup_page.dart';
 
 import '../../../../core/constants/k_sizes.dart';
@@ -20,7 +20,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
   final _formKey = GlobalKey<FormState>();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
-  final _googleSignIn = GoogleSignIn();
+  // final _googleSignIn = GoogleSignIn(); // Commented out due to dependency conflicts
   bool _isLoading = false;
   bool _rememberMe = false;
 

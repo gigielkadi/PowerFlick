@@ -1,17 +1,19 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'holiday_mode_page.dart';
 import 'night_mode_page.dart';
 import 'emergency_mode_page.dart';
 import 'work_from_home_mode_page.dart';
+import '../../../home/presentation/providers/home_providers.dart';
 
-class AutomationPage extends StatefulWidget {
+class AutomationPage extends ConsumerStatefulWidget {
   const AutomationPage({super.key});
 
   @override
-  State<AutomationPage> createState() => _AutomationPageState();
+  ConsumerState<AutomationPage> createState() => _AutomationPageState();
 }
 
-class _AutomationPageState extends State<AutomationPage> {
+class _AutomationPageState extends ConsumerState<AutomationPage> {
   final List<_AutomationMode> _modes = [
     _AutomationMode(
       icon: Icons.flight,
@@ -191,8 +193,13 @@ class _AutomationPageState extends State<AutomationPage> {
                       Transform.scale(
                         scale: 1.1,
                         child: Switch(
-                          value: mode.enabled,
+                          value: mode.title == 'Holiday Mode'
+                              ? ref.watch(holidayModeStateProvider)
+                              : mode.enabled,
                           onChanged: (val) {
+                            if (mode.title == 'Holiday Mode') {
+                              ref.read(holidayModeStateProvider.notifier).state = val;
+                            }
                             setState(() {
                               _modes[index] = mode.copyWith(enabled: val);
                             });

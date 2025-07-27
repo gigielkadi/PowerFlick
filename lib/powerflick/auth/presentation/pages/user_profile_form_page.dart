@@ -165,9 +165,10 @@ class _UserProfileFormPageState extends State<UserProfileFormPage> {
                           const SizedBox(height: 8),
                           TextField(
                             controller: _nameController,
+                            style: const TextStyle(color: Colors.black87),
                             decoration: InputDecoration(
                               hintText: 'Enter your name',
-                              hintStyle: TextStyle(color: Colors.grey.shade400),
+                              hintStyle: TextStyle(color: Colors.grey[600]),
                               prefixIcon: const Icon(Icons.person_outline, color: Colors.grey),
                               enabledBorder: UnderlineInputBorder(
                                 borderSide: BorderSide(color: Colors.grey.shade300, width: 1.5),
@@ -261,6 +262,7 @@ class _UserProfileFormPageState extends State<UserProfileFormPage> {
                                   style: const TextStyle(
                                     fontSize: 22,
                                     fontWeight: FontWeight.w500,
+                                    color: Colors.black87,
                                   ),
                                 ),
                               ),

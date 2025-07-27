@@ -49,22 +49,22 @@ class _PFTextFieldState extends State<PFTextField> {
       decoration: InputDecoration(
         hintText: widget.hint,
         errorText: _errorText,
-        hintStyle: TextStyle(
+        hintStyle: const TextStyle(
           fontSize: 14,
-          color: Colors.black.withOpacity(0.3),
+          color: Colors.black54,
           fontWeight: FontWeight.normal,
         ),
         prefixIcon: Icon(
           widget.icon,
           size: 18,
-          color: Colors.black.withOpacity(0.3),
+          color: Colors.black54,
         ),
         suffixIcon: widget.obscure
             ? IconButton(
                 icon: Icon(
                   _hide ? TablerIcons.eye : TablerIcons.eye_off,
                   size: 18,
-                  color: Colors.black.withOpacity(0.3),
+                  color: Colors.black54,
                 ),
                 onPressed: () => setState(() => _hide = !_hide),
                 iconSize: 18,
@@ -74,13 +74,13 @@ class _PFTextFieldState extends State<PFTextField> {
         contentPadding: const EdgeInsets.symmetric(vertical: 12),
         enabledBorder: UnderlineInputBorder(
           borderSide: BorderSide(
-            color: Colors.black.withOpacity(0.1),
+            color: Colors.black26,
             width: 1,
           ),
         ),
-        focusedBorder: UnderlineInputBorder(
+        focusedBorder: const UnderlineInputBorder(
           borderSide: BorderSide(
-            color: Colors.black.withOpacity(0.3),
+            color: Colors.black54,
             width: 1,
           ),
         ),

@@ -1,0 +1,643 @@
+import 'dart:async';
+import 'dart:convert';
+import 'package:flutter/foundation.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+// import 'package:firebase_messaging/firebase_messaging.dart'; // Removed due to dependency conflicts
+import 'package:permission_handler/permission_handler.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:workmanager/workmanager.dart';
+
+import '../models/power_consumption.dart';
+import 'ai_service.dart';
+import 'supabase_service.dart';
+
+class AiNotificationService {
+  static final AiNotificationService _instance = AiNotificationService._internal();
+  factory AiNotificationService() => _instance;
+  AiNotificationService._internal();
+
+  final FlutterLocalNotificationsPlugin _localNotifications = FlutterLocalNotificationsPlugin();
+  final FirebaseMessaging _firebaseMessaging = FirebaseMessaging.instance;
+  final SupabaseClient _supabaseClient = Supabase.instance.client;
+  final AiService _aiService = AiService();
+  final SupabaseService _supabaseService = SupabaseService();
+
+  // Notification settings
+  static const String _energySpikeChannelId = 'energy_spike_alerts';
+  static const String _anomalyChannelId = 'anomaly_alerts';
+  static const String _costThresholdChannelId = 'cost_threshold_alerts';
+
+  // Preferences keys
+  static const String _energySpikeThresholdKey = 'energy_spike_threshold';
+  static const String _costThresholdKey = 'cost_threshold';
+  static const String _notificationsEnabledKey = 'notifications_enabled';
+  static const String _lastCheckTimeKey = 'last_check_time';
+
+  // Default thresholds
+  static const double _defaultEnergySpikeThreshold = 2.0; // 2x average consumption
+  static const double _defaultCostThreshold = 50.0; // $50 daily cost
+
+  bool _isInitialized = false;
+  Timer? _monitoringTimer;
+
+  /// Initialize the notification service
+  Future<void> initialize() async {
+    if (_isInitialized) return;
+
+    try {
+      // Request permissions
+      await _requestPermissions();
+
+      // Initialize local notifications
+      await _initializeLocalNotifications();
+
+      // Initialize Firebase messaging
+      await _initializeFirebaseMessaging();
+
+      // Initialize background monitoring
+      await _initializeBackgroundMonitoring();
+
+      _isInitialized = true;
+      print('AI Notification Service initialized successfully');
+    } catch (e) {
+      print('Error initializing AI Notification Service: $e');
+    }
+  }
+
+  /// Request necessary permissions
+  Future<void> _requestPermissions() async {
+    // Request notification permission
+    await Permission.notification.request();
+
+    // Request Firebase messaging permission
+    await _firebaseMessaging.requestPermission(
+      alert: true,
+      badge: true,
+      sound: true,
+      provisional: false,
+    );
+  }
+
+  /// Initialize local notifications
+  Future<void> _initializeLocalNotifications() async {
+    const androidInitialization = AndroidInitializationSettings('@mipmap/ic_launcher');
+    const iosInitialization = DarwinInitializationSettings(
+      requestAlertPermission: true,
+      requestBadgePermission: true,
+      requestSoundPermission: true,
+    );
+
+    const initializationSettings = InitializationSettings(
+      android: androidInitialization,
+      iOS: iosInitialization,
+    );
+
+    await _localNotifications.initialize(
+      initializationSettings,
+      onDidReceiveNotificationResponse: _onNotificationTapped,
+    );
+
+    // Create notification channels
+    await _createNotificationChannels();
+  }
+
+  /// Create notification channels for different alert types
+  Future<void> _createNotificationChannels() async {
+    const energySpikeChannel = AndroidNotificationChannel(
+      _energySpikeChannelId,
+      'Energy Spike Alerts',
+      description: 'Notifications for sudden energy consumption spikes',
+      importance: Importance.high,
+      enableVibration: true,
+      playSound: true,
+    );
+
+    const anomalyChannel = AndroidNotificationChannel(
+      _anomalyChannelId,
+      'Anomaly Detection Alerts',
+      description: 'AI-powered anomaly detection notifications',
+      importance: Importance.high,
+      enableVibration: true,
+      playSound: true,
+    );
+
+    const costThresholdChannel = AndroidNotificationChannel(
+      _costThresholdChannelId,
+      'Cost Threshold Warnings',
+      description: 'Notifications when energy costs exceed thresholds',
+      importance: Importance.high,
+      enableVibration: true,
+      playSound: true,
+    );
+
+    await _localNotifications
+        .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>()
+        ?.createNotificationChannel(energySpikeChannel);
+
+    await _localNotifications
+        .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>()
+        ?.createNotificationChannel(anomalyChannel);
+
+    await _localNotifications
+        .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>()
+        ?.createNotificationChannel(costThresholdChannel);
+  }
+
+  /// Initialize Firebase messaging for push notifications
+  Future<void> _initializeFirebaseMessaging() async {
+    // Handle background messages
+    FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
+
+    // Handle foreground messages
+    FirebaseMessaging.onMessage.listen((RemoteMessage message) {
+      _handleForegroundMessage(message);
+    });
+
+    // Handle notification taps when app is in background
+    FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
+      _handleNotificationTap(message);
+    });
+
+    // Get FCM token for sending targeted notifications
+    String? token = await _firebaseMessaging.getToken();
+    if (token != null) {
+      await _saveFcmToken(token);
+    }
+
+    // Listen for token refresh
+    _firebaseMessaging.onTokenRefresh.listen(_saveFcmToken);
+  }
+
+  /// Initialize background monitoring using WorkManager
+  Future<void> _initializeBackgroundMonitoring() async {
+    await Workmanager().initialize(
+      callbackDispatcher,
+      isInDebugMode: kDebugMode,
+    );
+
+    // Schedule periodic monitoring task
+    await Workmanager().registerPeriodicTask(
+      'ai_monitoring_task',
+      'aiMonitoringTask',
+      frequency: const Duration(minutes: 15), // Check every 15 minutes
+      constraints: Constraints(
+        networkType: NetworkType.connected,
+        requiresBatteryNotLow: false,
+        requiresCharging: false,
+        requiresDeviceIdle: false,
+        requiresStorageNotLow: false,
+      ),
+    );
+  }
+
+  /// Handle notification tap
+  void _onNotificationTapped(NotificationResponse response) {
+    // Navigate to appropriate screen based on notification payload
+    final payload = response.payload;
+    if (payload != null) {
+      final data = json.decode(payload);
+      _navigateToRelevantScreen(data);
+    }
+  }
+
+  /// Handle foreground Firebase messages
+  void _handleForegroundMessage(RemoteMessage message) {
+    if (message.notification != null) {
+      _showLocalNotification(
+        title: message.notification!.title ?? 'PowerFlick Alert',
+        body: message.notification!.body ?? '',
+        payload: json.encode(message.data),
+        channelId: _getChannelIdFromData(message.data),
+      );
+    }
+  }
+
+  /// Handle notification tap from Firebase
+  void _handleNotificationTap(RemoteMessage message) {
+    _navigateToRelevantScreen(message.data);
+  }
+
+  /// Get appropriate channel ID based on message data
+  String _getChannelIdFromData(Map<String, dynamic> data) {
+    final type = data['type'] as String?;
+    switch (type) {
+      case 'energy_spike':
+        return _energySpikeChannelId;
+      case 'anomaly':
+        return _anomalyChannelId;
+      case 'cost_threshold':
+        return _costThresholdChannelId;
+      default:
+        return _anomalyChannelId;
+    }
+  }
+
+  /// Navigate to relevant screen based on notification data
+  void _navigateToRelevantScreen(Map<String, dynamic> data) {
+    // This would be implemented based on your navigation setup
+    // For example, navigate to AI dashboard or specific device screen
+    print('Navigate to screen for notification: $data');
+  }
+
+  /// Save FCM token to Supabase for targeted notifications
+  Future<void> _saveFcmToken(String token) async {
+    try {
+      final user = _supabaseClient.auth.currentUser;
+      if (user != null) {
+        await _supabaseClient.from('user_fcm_tokens').upsert({
+          'user_id': user.id,
+          'fcm_token': token,
+          'updated_at': DateTime.now().toIso8601String(),
+        });
+      }
+    } catch (e) {
+      print('Error saving FCM token: $e');
+    }
+  }
+
+  /// Monitor for energy spikes
+  Future<void> checkForEnergySpikes(String deviceId) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final threshold = prefs.getDouble(_energySpikeThresholdKey) ?? _defaultEnergySpikeThreshold;
+      
+      // Get current and average power consumption
+      final now = DateTime.now();
+      final oneDayAgo = now.subtract(const Duration(days: 1));
+      
+      final recentData = await _supabaseService.fetchConsumptionData(
+        deviceId,
+        startDate: oneDayAgo,
+        endDate: now,
+      );
+      
+      if (recentData.length < 2) return;
+      
+      final currentPower = recentData.last.consumption;
+      final averagePower = recentData
+          .map((d) => d.consumption)
+          .reduce((a, b) => a + b) / recentData.length;
+      
+      // Check if current consumption is above threshold
+      if (currentPower > averagePower * threshold) {
+        final spikePercentage = ((currentPower - averagePower) / averagePower * 100).round();
+        
+        await _sendEnergySpikePushNotification(
+          deviceId: deviceId,
+          currentPower: currentPower,
+          averagePower: averagePower,
+          spikePercentage: spikePercentage,
+        );
+        
+        await _showLocalNotification(
+          title: '⚡ Energy Spike Detected!',
+          body: 'Power consumption is ${spikePercentage}% above average (${currentPower.toStringAsFixed(1)}W vs ${averagePower.toStringAsFixed(1)}W)',
+          channelId: _energySpikeChannelId,
+          payload: json.encode({
+            'type': 'energy_spike',
+            'device_id': deviceId,
+            'current_power': currentPower,
+            'average_power': averagePower,
+          }),
+        );
+        
+        // Log the spike event
+        await _logEnergySpike(deviceId, currentPower, averagePower, spikePercentage);
+      }
+    } catch (e) {
+      print('Error checking for energy spikes: $e');
+    }
+  }
+
+  /// Monitor for AI-detected anomalies
+  Future<void> checkForAnomalies(String deviceId) async {
+    try {
+      // Get predictions and anomalies from AI service
+      final predictions = await _aiService.getPredictions(deviceId);
+      
+      if (predictions.anomalies.isNotEmpty) {
+        for (final anomaly in predictions.anomalies) {
+          // Only alert for high severity anomalies that are recent
+          if (anomaly.severity == 'high' && 
+              anomaly.timestamp.isAfter(DateTime.now().subtract(const Duration(hours: 1)))) {
+            
+            await _sendAnomalyPushNotification(anomaly);
+            
+            await _showLocalNotification(
+              title: '🤖 AI Anomaly Detected!',
+              body: _getAnomalyDescription(anomaly),
+              channelId: _anomalyChannelId,
+              payload: json.encode({
+                'type': 'anomaly',
+                'device_id': deviceId,
+                'anomaly_type': anomaly.type,
+                'severity': anomaly.severity,
+                'deviation': anomaly.deviationPercentage,
+              }),
+            );
+            
+            // Save anomaly alert to database
+            await _supabaseService.saveAnomalyAlert(deviceId, anomaly);
+          }
+        }
+      }
+    } catch (e) {
+      print('Error checking for anomalies: $e');
+    }
+  }
+
+  /// Monitor for cost threshold warnings
+  Future<void> checkForCostThresholds(String deviceId) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final threshold = prefs.getDouble(_costThresholdKey) ?? _defaultCostThreshold;
+      
+      // Calculate today's estimated cost
+      final now = DateTime.now();
+      final startOfDay = DateTime(now.year, now.month, now.day);
+      
+      final todayData = await _supabaseService.fetchConsumptionData(
+        deviceId,
+        startDate: startOfDay,
+        endDate: now,
+      );
+      
+      if (todayData.isEmpty) return;
+      
+      // Calculate total energy consumption in kWh
+      final totalKwh = todayData
+          .map((d) => d.consumption / 1000) // Convert watts to kWh
+          .reduce((a, b) => a + b);
+      
+      // Estimate cost (assuming $0.12 per kWh - this should be configurable)
+      const costPerKwh = 0.12;
+      final estimatedCost = totalKwh * costPerKwh;
+      
+      // Project full day cost
+      final hoursElapsed = now.difference(startOfDay).inHours;
+      final projectedDailyCost = hoursElapsed > 0 ? (estimatedCost / hoursElapsed) * 24 : estimatedCost;
+      
+      if (projectedDailyCost > threshold) {
+        await _sendCostThresholdPushNotification(
+          deviceId: deviceId,
+          currentCost: estimatedCost,
+          projectedCost: projectedDailyCost,
+          threshold: threshold,
+        );
+        
+        await _showLocalNotification(
+          title: '💰 Cost Threshold Warning!',
+          body: 'Daily energy cost projected to reach \$${projectedDailyCost.toStringAsFixed(2)} (threshold: \$${threshold.toStringAsFixed(2)})',
+          channelId: _costThresholdChannelId,
+          payload: json.encode({
+            'type': 'cost_threshold',
+            'device_id': deviceId,
+            'current_cost': estimatedCost,
+            'projected_cost': projectedDailyCost,
+            'threshold': threshold,
+          }),
+        );
+        
+        // Log the cost warning
+        await _logCostWarning(deviceId, estimatedCost, projectedDailyCost, threshold);
+      }
+    } catch (e) {
+      print('Error checking for cost thresholds: $e');
+    }
+  }
+
+  /// Send push notification for energy spike
+  Future<void> _sendEnergySpikePushNotification({
+    required String deviceId,
+    required double currentPower,
+    required double averagePower,
+    required int spikePercentage,
+  }) async {
+    // This would send a push notification via your backend
+    // For now, we'll just log it
+    print('Sending energy spike push notification for device $deviceId');
+  }
+
+  /// Send push notification for anomaly
+  Future<void> _sendAnomalyPushNotification(PowerConsumptionAnomaly anomaly) async {
+    // This would send a push notification via your backend
+    print('Sending anomaly push notification: ${anomaly.type}');
+  }
+
+  /// Send push notification for cost threshold
+  Future<void> _sendCostThresholdPushNotification({
+    required String deviceId,
+    required double currentCost,
+    required double projectedCost,
+    required double threshold,
+  }) async {
+    // This would send a push notification via your backend
+    print('Sending cost threshold push notification for device $deviceId');
+  }
+
+  /// Show local notification
+  Future<void> _showLocalNotification({
+    required String title,
+    required String body,
+    required String channelId,
+    String? payload,
+  }) async {
+    const androidDetails = AndroidNotificationDetails(
+      'default_channel',
+      'Default',
+      channelDescription: 'Default notification channel',
+      importance: Importance.high,
+      priority: Priority.high,
+      enableVibration: true,
+      playSound: true,
+    );
+
+    const iosDetails = DarwinNotificationDetails(
+      presentAlert: true,
+      presentBadge: true,
+      presentSound: true,
+    );
+
+    const notificationDetails = NotificationDetails(
+      android: androidDetails,
+      iOS: iosDetails,
+    );
+
+    await _localNotifications.show(
+      DateTime.now().millisecondsSinceEpoch ~/ 1000,
+      title,
+      body,
+      notificationDetails,
+      payload: payload,
+    );
+  }
+
+  /// Get user-friendly anomaly description
+  String _getAnomalyDescription(PowerConsumptionAnomaly anomaly) {
+    switch (anomaly.type) {
+      case 'high_deviation':
+        return 'Unusually high power consumption detected (${anomaly.deviationPercentage.toStringAsFixed(1)}% above normal)';
+      case 'low_deviation':
+        return 'Unusually low power consumption detected (${anomaly.deviationPercentage.toStringAsFixed(1)}% below normal)';
+      default:
+        return 'Unusual power consumption pattern detected';
+    }
+  }
+
+  /// Log energy spike event
+  Future<void> _logEnergySpike(String deviceId, double currentPower, double averagePower, int spikePercentage) async {
+    try {
+      await _supabaseClient.from('energy_spike_logs').insert({
+        'device_id': deviceId,
+        'timestamp': DateTime.now().toIso8601String(),
+        'current_power': currentPower,
+        'average_power': averagePower,
+        'spike_percentage': spikePercentage,
+      });
+    } catch (e) {
+      print('Error logging energy spike: $e');
+    }
+  }
+
+  /// Log cost warning event
+  Future<void> _logCostWarning(String deviceId, double currentCost, double projectedCost, double threshold) async {
+    try {
+      await _supabaseClient.from('cost_warning_logs').insert({
+        'device_id': deviceId,
+        'timestamp': DateTime.now().toIso8601String(),
+        'current_cost': currentCost,
+        'projected_cost': projectedCost,
+        'threshold': threshold,
+      });
+    } catch (e) {
+      print('Error logging cost warning: $e');
+    }
+  }
+
+  /// Start real-time monitoring
+  Future<void> startMonitoring({List<String>? deviceIds}) async {
+    if (!_isInitialized) {
+      await initialize();
+    }
+
+    _monitoringTimer?.cancel();
+    _monitoringTimer = Timer.periodic(const Duration(minutes: 5), (timer) async {
+      final devices = deviceIds ?? await _getActiveDeviceIds();
+      
+      for (final deviceId in devices) {
+        await checkForEnergySpikes(deviceId);
+        await checkForAnomalies(deviceId);
+        await checkForCostThresholds(deviceId);
+      }
+      
+      // Update last check time
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(_lastCheckTimeKey, DateTime.now().toIso8601String());
+    });
+  }
+
+  /// Stop monitoring
+  void stopMonitoring() {
+    _monitoringTimer?.cancel();
+    _monitoringTimer = null;
+  }
+
+  /// Get active device IDs from database
+  Future<List<String>> _getActiveDeviceIds() async {
+    try {
+      final response = await _supabaseClient
+          .from('devices')
+          .select('device_id')
+          .eq('is_active', true);
+      
+      return (response as List).map((device) => device['device_id'] as String).toList();
+    } catch (e) {
+      print('Error getting active device IDs: $e');
+      return [];
+    }
+  }
+
+  /// Update notification settings
+  Future<void> updateSettings({
+    double? energySpikeThreshold,
+    double? costThreshold,
+    bool? notificationsEnabled,
+  }) async {
+    final prefs = await SharedPreferences.getInstance();
+    
+    if (energySpikeThreshold != null) {
+      await prefs.setDouble(_energySpikeThresholdKey, energySpikeThreshold);
+    }
+    
+    if (costThreshold != null) {
+      await prefs.setDouble(_costThresholdKey, costThreshold);
+    }
+    
+    if (notificationsEnabled != null) {
+      await prefs.setBool(_notificationsEnabledKey, notificationsEnabled);
+    }
+  }
+
+  /// Get current notification settings
+  Future<NotificationSettings> getSettings() async {
+    final prefs = await SharedPreferences.getInstance();
+    
+    return NotificationSettings(
+      energySpikeThreshold: prefs.getDouble(_energySpikeThresholdKey) ?? _defaultEnergySpikeThreshold,
+      costThreshold: prefs.getDouble(_costThresholdKey) ?? _defaultCostThreshold,
+      notificationsEnabled: prefs.getBool(_notificationsEnabledKey) ?? true,
+      lastCheckTime: prefs.getString(_lastCheckTimeKey) != null 
+          ? DateTime.parse(prefs.getString(_lastCheckTimeKey)!)
+          : null,
+    );
+  }
+
+  /// Dispose resources
+  void dispose() {
+    _monitoringTimer?.cancel();
+  }
+}
+
+/// Background message handler for Firebase
+@pragma('vm:entry-point')
+Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
+  print('Handling background message: ${message.messageId}');
+}
+
+/// Background task callback
+@pragma('vm:entry-point')
+void callbackDispatcher() {
+  Workmanager().executeTask((task, inputData) async {
+    switch (task) {
+      case 'aiMonitoringTask':
+        // Perform background AI monitoring
+        final service = AiNotificationService();
+        await service.initialize();
+        
+        final devices = await service._getActiveDeviceIds();
+        for (final deviceId in devices) {
+          await service.checkForEnergySpikes(deviceId);
+          await service.checkForAnomalies(deviceId);
+          await service.checkForCostThresholds(deviceId);
+        }
+        break;
+    }
+    return Future.value(true);
+  });
+}
+
+/// Notification settings model
+class NotificationSettings {
+  final double energySpikeThreshold;
+  final double costThreshold;
+  final bool notificationsEnabled;
+  final DateTime? lastCheckTime;
+
+  NotificationSettings({
+    required this.energySpikeThreshold,
+    required this.costThreshold,
+    required this.notificationsEnabled,
+    this.lastCheckTime,
+  });
+} 

@@ -34,10 +34,10 @@ class PowerFlickBottomNavBar extends StatelessWidget {
               Navigator.of(context).pushNamed('/add-device');
               break;
             case 2:
-              // Alerts page (implement route if exists)
+              Navigator.of(context).pushNamed('/alerts');
               break;
             case 3:
-              // Settings page (implement route if exists)
+              Navigator.of(context).pushNamed('/settings');
               break;
           }
         }

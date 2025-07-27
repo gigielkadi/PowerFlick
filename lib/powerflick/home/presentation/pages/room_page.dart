@@ -47,7 +47,7 @@ class RoomPage extends ConsumerWidget {
                 width: double.infinity,
                 decoration: BoxDecoration(
                   image: DecorationImage(
-                    image: AssetImage(room.imageUrl),
+                    image: AssetImage(room.imageAsset),
                     fit: BoxFit.cover,
                     colorFilter: ColorFilter.mode(
                       Colors.black.withOpacity(0.3),

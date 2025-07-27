@@ -3,12 +3,17 @@ import '../../../home/presentation/pages/my_home_page_control.dart';
 import '../pages/dashboard_page.dart';
 import '../../../automation/presentation/pages/automation_page.dart';
 import '../../../widgets/powerflick_bottom_nav_bar.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../home/presentation/providers/home_providers.dart';
+import 'ai_dashboard_page.dart';
 
-class ControlPanelPage extends StatelessWidget {
+class ControlPanelPage extends ConsumerWidget {
   const ControlPanelPage({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final totalKwhAsync = ref.watch(totalKwhProvider);
+    final userGoalAsync = ref.watch(userGoalProvider);
     final screenHeight = MediaQuery.of(context).size.height;
     final bottomPadding = MediaQuery.of(context).padding.bottom;
     
@@ -37,169 +42,239 @@ class ControlPanelPage extends StatelessWidget {
         bottom: false,
         child: Container(
           color: const Color(0xFFF2F4F8),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              // Summary Card
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
-                child: Container(
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(24),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.06),
-                        blurRadius: 16,
-                        offset: const Offset(0, 4),
+          child: userGoalAsync.when(
+            loading: () => const Center(child: CircularProgressIndicator()),
+            error: (e, _) => Center(child: Text('Error: $e')),
+            data: (maxConsumption) {
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  // Summary Card
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(24),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.06),
+                            blurRadius: 16,
+                            offset: const Offset(0, 4),
+                          ),
+                        ],
                       ),
-                    ],
-                  ),
-                  child: Stack(
-                    children: [
-                      Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 18),
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          crossAxisAlignment: CrossAxisAlignment.center,
-                          children: [
-                            // Circular indicator and percentage
-                            Center(
-                              child: SizedBox(
-                                height: 140,
-                                width: 140,
-                                child: ThreeLayerCircularIndicator(
-                                  percent: 0.72,
-                                  currentKwh: 0,
-                                  totalKwh: 0,
-                                  fontSizePercent: 24,
-                                  fontSizeKwh: 13,
-                                  fontSizeTotal: 12,
-                                  centerLabel: 'of budget',
-                                ),
-                              ),
-                            ),
-                            const SizedBox(height: 12),
-                            // Stats below indicator
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                      child: totalKwhAsync.when(
+                        loading: () => const Center(child: CircularProgressIndicator()),
+                        error: (e, _) => Center(child: Text('Error: $e')),
+                        data: (totalKwh) {
+                          final percent = maxConsumption > 0 ? (totalKwh / maxConsumption).clamp(0, 1).toDouble() : 0.0;
+                          final minArc = 0.01; // 1% minimum arc
+                          final displayPercent = (percent > 0 && percent < minArc) ? minArc : percent;
+                          return Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 18),
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              crossAxisAlignment: CrossAxisAlignment.center,
                               children: [
-                                Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: const [
-                                    Text('22 kg CO2 Saved', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: Colors.black)),
-                                    SizedBox(height: 2),
-                                    Text("Today's impact", style: TextStyle(fontSize: 13, color: Color(0xFF6E7787))),
-                                  ],
+                                Center(
+                                  child: Container(
+                                    height: 180,
+                                    width: 180,
+                                    decoration: BoxDecoration(
+                                      color: Colors.white,
+                                      shape: BoxShape.circle,
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: Colors.black.withOpacity(0.05),
+                                          blurRadius: 10,
+                                          offset: const Offset(0, 4),
+                                          spreadRadius: 2,
+                                        ),
+                                      ],
+                                    ),
+                                    child: Stack(
+                                      alignment: Alignment.center,
+                                      children: [
+                                        CustomPaint(
+                                          size: const Size(180, 180),
+                                          painter: CircularProgressPainter(
+                                            progress: displayPercent,
+                                            color: const Color(0xFF4CAF50),
+                                          ),
+                                        ),
+                                        Column(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            Container(
+                                              padding: const EdgeInsets.all(8),
+                                              decoration: BoxDecoration(
+                                                color: Colors.white,
+                                                shape: BoxShape.circle,
+                                                boxShadow: [
+                                                  BoxShadow(
+                                                    color: const Color(0xFF4CAF50).withOpacity(0.2),
+                                                    blurRadius: 4,
+                                                    offset: const Offset(0, 2),
+                                                    spreadRadius: 1,
+                                                  ),
+                                                ],
+                                              ),
+                                              child: const Icon(
+                                                Icons.bolt,
+                                                color: Color(0xFF4CAF50),
+                                                size: 20,
+                                              ),
+                                            ),
+                                            const SizedBox(height: 8),
+                                            Text(
+                                              '${(percent * 100).toStringAsFixed(2)}%',
+                                              style: const TextStyle(
+                                                fontSize: 28,
+                                                fontWeight: FontWeight.bold,
+                                                color: Colors.black,
+                                                letterSpacing: -1.5,
+                                              ),
+                                            ),
+                                            const SizedBox(height: 2),
+                                            Text(
+                                              '${totalKwh.toStringAsFixed(2)} kWh',
+                                              style: const TextStyle(
+                                                fontSize: 14,
+                                                fontWeight: FontWeight.w600,
+                                                color: Colors.black87,
+                                              ),
+                                            ),
+                                            const SizedBox(height: 2),
+                                            Text(
+                                              'of $maxConsumption kWh',
+                                              style: TextStyle(
+                                                fontSize: 13,
+                                                color: Colors.grey.shade600,
+                                                fontWeight: FontWeight.w400,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ],
+                                    ),
+                                  ),
                                 ),
-                                Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: const [
-                                    Text('1.8 kWh', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: Colors.black)),
-                                    SizedBox(height: 2),
-                                    Text('Energy Usage', style: TextStyle(fontSize: 13, color: Color(0xFF6E7787))),
+                                const SizedBox(height: 12),
+                                // Stats below indicator
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                                  children: [
+                                    Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: const [
+                                        Text('22 kg CO2 Saved', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: Colors.black)),
+                                        SizedBox(height: 2),
+                                        Text("Today's impact", style: TextStyle(fontSize: 13, color: Color(0xFF6E7787))),
+                                      ],
+                                    ),
+                                    Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text('${totalKwh.toStringAsFixed(2)} kWh', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: Colors.black)),
+                                        const SizedBox(height: 2),
+                                        const Text('Energy Usage', style: TextStyle(fontSize: 13, color: Color(0xFF6E7787))),
+                                      ],
+                                    ),
                                   ],
                                 ),
                               ],
                             ),
-                          ],
-                        ),
-                      ),
-                      // Last Synced text
-                      Positioned(
-                        top: 12,
-                        right: 18,
-                        child: Row(
-                          children: const [
-                            Icon(Icons.sync, size: 14, color: Color(0xFFB0B0B0)),
-                            SizedBox(width: 2),
-                            Text('Last Synced : 5 min ago', style: TextStyle(fontSize: 12, color: Color(0xFFB0B0B0))),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              // Quick Controls Title
-              const Padding(
-                padding: EdgeInsets.only(left: 24, top: 8, bottom: 8),
-                child: Text(
-                  'Quick Controls',
-                  style: TextStyle(
-                    fontSize: 17,
-                    fontWeight: FontWeight.w600,
-                    color: Color(0xFF6E7787),
-                  ),
-                ),
-              ),
-              // Quick Controls Grid
-              Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  child: GridView.count(
-                    crossAxisCount: 2,
-                    crossAxisSpacing: 16,
-                    mainAxisSpacing: 16,
-                    childAspectRatio: 1.15,
-                    padding: EdgeInsets.zero,
-                    children: [
-                      _buildFeatureCardWithImage(
-                        'Dashboard',
-                        Icons.dashboard,
-                        [
-                          _buildFeatureItem(Icons.speed, 'Total consumption'),
-                          _buildFeatureItem(Icons.history, 'History'),
-                        ],
-                        'assets/illustrations/dashboard.png',
-                        onTap: () {
-                          Navigator.of(context).push(
-                            MaterialPageRoute(builder: (context) => const DashboardPage()),
                           );
                         },
                       ),
-                      _buildFeatureCardWithImage(
-                        'Control',
-                        Icons.gamepad,
-                        [
-                          _buildActionButton('Tap to adjust'),
-                        ],
-                        'assets/illustrations/control.png',
-                        onTap: () {
-                          Navigator.of(context).push(
-                            MaterialPageRoute(builder: (context) => const MyHomePageControl()),
-                          );
-                        },
-                      ),
-                      _buildFeatureCardWithImage(
-                        'Automate',
-                        Icons.auto_awesome,
-                        [
-                          _buildFeatureToggle(Icons.nightlight, 'Night Mode'),
-                          _buildFeatureToggle(Icons.flight, 'Holiday Mode'),
-                          _buildFeatureToggle(Icons.power_settings_new, 'Low Power Mode'),
-                        ],
-                        'assets/illustrations/automate.png',
-                        onTap: () {
-                          Navigator.of(context).push(
-                            MaterialPageRoute(builder: (context) => const AutomationPage()),
-                          );
-                        },
-                      ),
-                      _buildFeatureCardWithImage(
-                        'Optimize',
-                        Icons.trending_up,
-                        [
-                          _buildActionButton('Switch up your pattern'),
-                        ],
-                        'assets/illustrations/optimize.png',
-                        onTap: () {},
-                      ),
-                    ],
+                    ),
                   ),
-                ),
-              ),
-            ],
+                  // Quick Controls Title
+                  const Padding(
+                    padding: EdgeInsets.only(left: 24, top: 8, bottom: 8),
+                    child: Text(
+                      'Quick Controls',
+                      style: TextStyle(
+                        fontSize: 17,
+                        fontWeight: FontWeight.w600,
+                        color: Color(0xFF6E7787),
+                      ),
+                    ),
+                  ),
+                  // Quick Controls Grid
+                  Expanded(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      child: GridView.count(
+                        crossAxisCount: 2,
+                        crossAxisSpacing: 16,
+                        mainAxisSpacing: 16,
+                        childAspectRatio: 1.15,
+                        padding: EdgeInsets.zero,
+                        children: [
+                          _buildFeatureCardWithImage(
+                            'Dashboard',
+                            Icons.dashboard,
+                            [
+                              _buildFeatureItem(Icons.speed, 'Total consumption'),
+                              _buildFeatureItem(Icons.history, 'History'),
+                            ],
+                            'assets/illustrations/dashboard.png',
+                            onTap: () {
+                              Navigator.of(context).push(
+                                MaterialPageRoute(builder: (context) => const DashboardPage()),
+                              );
+                            },
+                          ),
+                          _buildFeatureCardWithImage(
+                            'Control',
+                            Icons.gamepad,
+                            [
+                              _buildActionButton('Tap to adjust'),
+                            ],
+                            'assets/illustrations/control.png',
+                            onTap: () {
+                              Navigator.of(context).push(
+                                MaterialPageRoute(builder: (context) => const MyHomePageControl()),
+                              );
+                            },
+                          ),
+                          _buildFeatureCardWithImage(
+                            'Automate',
+                            Icons.auto_awesome,
+                            [
+                              _buildFeatureToggle(Icons.nightlight, 'Night Mode'),
+                              _buildFeatureToggle(Icons.flight, 'Holiday Mode'),
+                              _buildFeatureToggle(Icons.power_settings_new, 'Low Power Mode'),
+                            ],
+                            'assets/illustrations/automate.png',
+                            onTap: () {
+                              Navigator.of(context).push(
+                                MaterialPageRoute(builder: (context) => const AutomationPage()),
+                              );
+                            },
+                          ),
+                          _buildFeatureCardWithImage(
+                            'Optimize',
+                            Icons.trending_up,
+                            [
+                              _buildActionButton('Switch up your pattern'),
+                            ],
+                            'assets/illustrations/optimize.png',
+                            onTap: () {
+                              Navigator.of(context).push(
+                                MaterialPageRoute(builder: (context) => const AiDashboardPage()),
+                              );
+                            },
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              );
+            },
           ),
         ),
       ),

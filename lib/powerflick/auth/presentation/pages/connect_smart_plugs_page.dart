@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../../core/constants/k_colors.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 class ConnectSmartPlugsPage extends StatefulWidget {
   const ConnectSmartPlugsPage({super.key});
@@ -42,16 +43,21 @@ class _ConnectSmartPlugsPageState extends State<ConnectSmartPlugsPage> {
     });
   }
 
-  void _connectAllPlugs() {
+  void _connectAllPlugs() async {
     // Connect all detected plugs and navigate back
+    List<Map<String, dynamic>> devicesToInsert = [];
     for (var plug in _detectedPlugs) {
-      plug['connected'] = true;
+      if (plug['connected'] == true) {
+        devicesToInsert.add({
+          'type': plug['type'],
+          'name': plug['name'],
+          'selected': true,
+        });
+      }
     }
-    
-    // In a real app, you would save this information to a database
-    
+
     // Go back to home setup page
-    Navigator.of(context).pop();
+    Navigator.of(context).pop(devicesToInsert); // Return the list of connected plugs
   }
 
   @override

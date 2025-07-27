@@ -2,21 +2,25 @@ class Device {
   final String id;
   final String name;
   final String type;
-  final String brand;
-  final String model;
+  final String? brand;
+  final String? model;
   final bool isOn;
   final bool isSmart;
   final Map<String, dynamic> properties;
+  final String status;
+  final double totalPower;
 
   Device({
     required this.id,
     required this.name,
     required this.type,
-    required this.brand,
-    required this.model,
+    this.brand,
+    this.model,
     this.isOn = false,
     this.isSmart = false,
     this.properties = const {},
+    this.status = 'offline',
+    this.totalPower = 0,
   });
 
   Device copyWith({
@@ -28,6 +32,8 @@ class Device {
     bool? isOn,
     bool? isSmart,
     Map<String, dynamic>? properties,
+    String? status,
+    double? totalPower,
   }) {
     return Device(
       id: id ?? this.id,
@@ -38,6 +44,8 @@ class Device {
       isOn: isOn ?? this.isOn,
       isSmart: isSmart ?? this.isSmart,
       properties: properties ?? this.properties,
+      status: status ?? this.status,
+      totalPower: totalPower ?? this.totalPower,
     );
   }
 
@@ -51,6 +59,8 @@ class Device {
       'is_on': isOn,
       'is_smart': isSmart,
       'properties': properties,
+      'status': status,
+      'total_power': totalPower,
     };
   }
 
@@ -59,11 +69,13 @@ class Device {
       id: json['id'],
       name: json['name'],
       type: json['type'],
-      brand: json['brand'],
-      model: json['model'],
+      brand: json['brand'] ?? '',
+      model: json['model'] ?? '',
       isOn: json['is_on'] ?? false,
       isSmart: json['is_smart'] ?? false,
       properties: json['properties'] ?? {},
+      status: json['status'] ?? 'offline',
+      totalPower: (json['total_power'] ?? 0).toDouble(),
     );
   }
 

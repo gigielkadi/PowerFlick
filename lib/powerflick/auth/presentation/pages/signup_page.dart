@@ -1,7 +1,7 @@
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:google_sign_in/google_sign_in.dart';
+// import 'package:google_sign_in/google_sign_in.dart'; // Removed due to dependency conflicts
 import './login_page.dart';
 
 import '../../../../core/constants/k_sizes.dart';
@@ -23,7 +23,7 @@ class _SignupPageState extends ConsumerState<SignupPage> {
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
   bool _agreeToTerms = false;
-  final _googleSignIn = GoogleSignIn();
+  // final _googleSignIn = GoogleSignIn(); // Commented out due to dependency conflicts
   bool _isLoading = false;
 
   @override
@@ -121,6 +121,8 @@ class _SignupPageState extends ConsumerState<SignupPage> {
     }
   }
 
+  // Commented out due to Google Sign In dependency conflicts
+  /*
   Future<void> _handleGoogleSignUp() async {
     try {
       setState(() => _isLoading = true);
@@ -167,6 +169,7 @@ class _SignupPageState extends ConsumerState<SignupPage> {
       }
     }
   }
+  */
 
   @override
   Widget build(BuildContext context) {
@@ -341,7 +344,7 @@ class _SignupPageState extends ConsumerState<SignupPage> {
                 width: double.infinity,
                 height: 48,
                 child: OutlinedButton.icon(
-                  onPressed: _isLoading ? null : _handleGoogleSignUp,
+                  onPressed: null, // _isLoading ? null : _handleGoogleSignUp, // Disabled due to dependency conflicts
                   style: OutlinedButton.styleFrom(
                     backgroundColor: const Color(0xFFE5E5EA),
                     shape: RoundedRectangleBorder(

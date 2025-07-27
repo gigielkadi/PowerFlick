@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../providers/home_providers.dart';
 import '../../domain/models/room.dart';
@@ -26,70 +27,30 @@ class HomePage extends ConsumerWidget {
           onPressed: () => Navigator.pop(context),
         ),
       ),
-      body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(16.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Rooms Grid
-              roomsAsyncValue.when(
-                data: (rooms) => _buildRoomsGrid(context, rooms),
-                loading: () => const Center(child: CircularProgressIndicator()),
-                error: (error, stack) => Center(
-                  child: Text('Error loading rooms: $error'),
-                ),
-              ),
-              
-              const SizedBox(height: 24),
-              
-              // Quick Access Section
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  const Text(
-                    'Quick access',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w600,
-                      color: Color(0xFF6E7787),
-                    ),
+      body: roomsAsyncValue.when(
+        loading: () => const Center(child: CircularProgressIndicator()),
+        error: (error, stack) => Center(child: Text('Error loading rooms: $error')),
+        data: (rooms) {
+          return CustomScrollView(
+            slivers: [
+              SliverPadding(
+                padding: const EdgeInsets.all(16.0),
+                sliver: SliverGrid(
+                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: 2,
+                    mainAxisSpacing: 16,
+                    crossAxisSpacing: 16,
+                    childAspectRatio: 1,
                   ),
-                  TextButton(
-                    onPressed: () {
-                      // Navigate to all devices page
-                    },
-                    child: Row(
-                      children: const [
-                        Text(
-                          'All Devices',
-                          style: TextStyle(
-                            color: Color(0xFFFF9500),
-                          ),
-                        ),
-                        Icon(
-                          Icons.chevron_right,
-                          color: Color(0xFFFF9500),
-                        ),
-                      ],
-                    ),
+                  delegate: SliverChildBuilderDelegate(
+                    (context, index) => _buildRoomCardWithDevices(context, ref, rooms[index]),
+                    childCount: rooms.length,
                   ),
-                ],
-              ),
-              
-              const SizedBox(height: 16),
-              
-              // Quick Access Devices
-              quickAccessDevicesAsyncValue.when(
-                data: (devices) => _buildQuickAccessDevices(context, ref, devices),
-                loading: () => const Center(child: CircularProgressIndicator()),
-                error: (error, stack) => Center(
-                  child: Text('Error loading devices: $error'),
                 ),
               ),
             ],
-          ),
-        ),
+          );
+        },
       ),
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: 0,
@@ -119,37 +80,9 @@ class HomePage extends ConsumerWidget {
     );
   }
   
-  Widget _buildRoomsGrid(BuildContext context, List<Room> rooms) {
-    return Column(
-      children: [
-        GridView.count(
-          crossAxisCount: 2,
-          mainAxisSpacing: 16,
-          crossAxisSpacing: 16,
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          children: rooms.map((room) => _buildRoomCard(context, room)).toList(),
-        ),
-        const SizedBox(height: 16),
-        ElevatedButton(
-          onPressed: () {
-            Navigator.pushNamed(context, '/rooms');
-          },
-          style: ElevatedButton.styleFrom(
-            backgroundColor: Colors.indigo.shade100,
-            foregroundColor: Colors.indigo.shade700,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
-            minimumSize: const Size(double.infinity, 48),
-          ),
-          child: const Text('View all rooms'),
-        ),
-      ],
-    );
-  }
-  
-  Widget _buildRoomCard(BuildContext context, Room room) {
+  Widget _buildRoomCardWithDevices(BuildContext context, WidgetRef ref, Room room) {
+    final devicesAsyncValue = ref.watch(roomDevicesProvider(room.id));
+    
     return GestureDetector(
       onTap: () {
         Navigator.push(
@@ -164,7 +97,7 @@ class HomePage extends ConsumerWidget {
         child: Container(
           decoration: BoxDecoration(
             image: DecorationImage(
-              image: AssetImage(room.imageUrl),
+              image: AssetImage(room.imageAsset),
               fit: BoxFit.cover,
               colorFilter: ColorFilter.mode(
                 Colors.black.withOpacity(0.4),
@@ -177,21 +110,72 @@ class HomePage extends ConsumerWidget {
               Positioned(
                 left: 16,
                 bottom: 16,
-                child: Row(
+                right: 16,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      room.name,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 18,
-                        fontWeight: FontWeight.w600,
-                      ),
+                    Row(
+                      children: [
+                        Text(
+                          room.name,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 18,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        const SizedBox(width: 4),
+                        const Icon(
+                          Icons.chevron_right,
+                          color: Colors.white,
+                          size: 20,
+                        ),
+                      ],
                     ),
-                    const SizedBox(width: 4),
-                    const Icon(
-                      Icons.chevron_right,
-                      color: Colors.white,
-                      size: 20,
+                    const SizedBox(height: 8),
+                    devicesAsyncValue.when(
+                      loading: () => const SizedBox(
+                        height: 32,
+                        child: Center(child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)),
+                      ),
+                      error: (error, stack) => Text('Error loading devices: $error', style: TextStyle(color: Colors.red)),
+                      data: (devices) {
+                        if (devices.isEmpty) {
+                          return const SizedBox.shrink();
+                        }
+                        return SizedBox(
+                          height: 36,
+                          child: ListView.separated(
+                            scrollDirection: Axis.horizontal,
+                            itemCount: devices.length,
+                            separatorBuilder: (_, __) => const SizedBox(width: 12),
+                            itemBuilder: (context, idx) {
+                              final device = devices[idx];
+                              return Row(
+                                children: [
+                                  Container(
+                                    padding: const EdgeInsets.all(4),
+                                    decoration: BoxDecoration(
+                                      color: Colors.white.withOpacity(0.15),
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                    child: Row(
+                                      children: [
+                                        Icon(_getDeviceIcon(device.type), color: Colors.white, size: 20),
+                                        const SizedBox(width: 4),
+                                        Text(
+                                          device.name,
+                                          style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w500),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              );
+                            },
+                          ),
+                        );
+                      },
                     ),
                   ],
                 ),
@@ -202,88 +186,45 @@ class HomePage extends ConsumerWidget {
       ),
     );
   }
-  
-  Widget _buildQuickAccessDevices(BuildContext context, WidgetRef ref, List<Device> devices) {
-    return GridView.count(
-      crossAxisCount: 2,
-      mainAxisSpacing: 16,
-      crossAxisSpacing: 16,
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      childAspectRatio: 1.8,
-      children: devices.map((device) => _buildDeviceCard(context, ref, device)).toList(),
-    );
-  }
-  
-  Widget _buildDeviceCard(BuildContext context, WidgetRef ref, Device device) {
-    // Determine icon based on device type
-    IconData deviceIcon = Icons.device_unknown;
-    switch (device.type) {
-      case 'tv':
-        deviceIcon = Icons.tv;
-        break;
-      case 'fridge':
-        deviceIcon = Icons.kitchen;
-        break;
-      case 'light':
-        deviceIcon = Icons.lightbulb_outline;
-        break;
+
+  IconData _getDeviceIcon(String type) {
+    switch (type.toLowerCase()) {
       case 'ac':
-        deviceIcon = Icons.ac_unit;
-        break;
+        return Icons.ac_unit;
+      case 'lamp':
+        return Icons.lightbulb_outline;
+      case 'fan':
+        return Icons.toys;
+      case 'charger':
+        return Icons.power;
+      case 'computer':
+        return Icons.computer;
+      case 'lights':
+        return Icons.light_mode;
+      case 'tv':
+        return Icons.tv;
+      case 'speaker':
+        return Icons.speaker;
+      case 'console':
+        return Icons.sports_esports;
+      case 'microwave':
+        return Icons.microwave;
+      case 'oven':
+        return Icons.kitchen;
+      case 'fridge':
+        return Icons.kitchen_outlined;
+      case 'coffee maker':
+        return Icons.coffee;
+      case 'water heater':
+        return Icons.hot_tub;
+      case 'stove':
+        return Icons.local_fire_department;
+      case 'water dispenser':
+        return Icons.water;
+      case 'speakers':
+        return Icons.speaker_group;
+      default:
+        return Icons.devices_other;
     }
-    
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.grey[800],
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Icon(
-                deviceIcon,
-                color: Colors.white70,
-                size: 28,
-              ),
-              Switch(
-                value: device.isOn,
-                onChanged: (value) {
-                  // Toggle device power
-                  ref.read(toggleDevicePowerProvider(
-                    ToggleDeviceParams(
-                      deviceId: device.id,
-                      isOn: value,
-                    )
-                  ));
-                },
-                activeColor: device.isSmart ? Colors.amber : Colors.white,
-              ),
-            ],
-          ),
-          const Spacer(),
-          Text(
-            device.isSmart ? 'Smart ${device.type.toUpperCase()}' : 'Non Smart ${device.type.toUpperCase()}',
-            style: TextStyle(
-              color: Colors.grey[400],
-              fontSize: 12,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            '${device.brand} ${device.model}',
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 14,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-        ],
-      ),
-    );
   }
 } 

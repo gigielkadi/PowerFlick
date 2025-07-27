@@ -14,6 +14,8 @@ import '../../powerflick/admin/presentation/pages/admin_launcher.dart';
 import '../../powerflick/mcp/presentation/pages/mcp_page.dart';
 import '../../powerflick/home/presentation/pages/home_page.dart';
 import '../../powerflick/home/presentation/pages/rooms_list_page.dart';
+import '../../powerflick/auth/presentation/pages/subscription_plan_page.dart';
+import '../../powerflick/settings/presentation/pages/settings_page.dart';
 
 /// Router configuration for the app
 class AppRouter {
@@ -91,6 +93,16 @@ class AppRouter {
       case '/rooms':
         return MaterialPageRoute(
           builder: (_) => const RoomsListPage(),
+          settings: settings,
+        );
+      case '/subscription-plan':
+        return MaterialPageRoute(
+          builder: (_) => const SubscriptionPlanPage(),
+          settings: settings,
+        );
+      case '/settings':
+        return MaterialPageRoute(
+          builder: (_) => const SettingsPage(),
           settings: settings,
         );
       default:

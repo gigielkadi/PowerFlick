@@ -78,7 +78,7 @@ class SubscriptionPlanPage extends StatelessWidget {
                       height: 50,
                       child: ElevatedButton(
                         onPressed: () {
-                          Navigator.pushReplacementNamed(context, '/profile-form');
+                          Navigator.pushReplacementNamed(context, '/control-panel');
                         },
                         style: ElevatedButton.styleFrom(
                           backgroundColor: const Color(0xFF556052), // Dark green
@@ -153,8 +153,7 @@ class SubscriptionPlanPage extends StatelessWidget {
                       height: 50,
                       child: ElevatedButton(
                         onPressed: () {
-                          // Handle pro subscription
-                          Navigator.pushReplacementNamed(context, '/dashboard');
+                          Navigator.pushReplacementNamed(context, '/control-panel');
                         },
                         style: ElevatedButton.styleFrom(
                           backgroundColor: KColors.primary, // App's primary green
@@ -173,61 +172,7 @@ class SubscriptionPlanPage extends StatelessWidget {
                         ),
                       ),
                     ),
-                    const SizedBox(height: 12),
-                    TextButton(
-                      onPressed: () {
-                        // Show what's included dialog
-                        showDialog(
-                          context: context,
-                          builder: (context) => AlertDialog(
-                            title: const Text('What\'s included?'),
-                            content: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: const [
-                                BulletPoint(text: 'Advanced energy usage analytics'),
-                                BulletPoint(text: 'Smart automations & scheduling'),
-                                BulletPoint(text: 'Priority customer support'),
-                                BulletPoint(text: 'Unlimited device connections'),
-                                BulletPoint(text: 'Energy cost predictions'),
-                              ],
-                            ),
-                            actions: [
-                              TextButton(
-                                onPressed: () => Navigator.pop(context),
-                                child: const Text('Close'),
-                              ),
-                            ],
-                          ),
-                        );
-                      },
-                      child: const Text(
-                        'What\'s included?',
-                        style: TextStyle(
-                          color: Colors.black54,
-                          fontSize: 14,
-                        ),
-                      ),
-                    ),
                   ],
-                ),
-              ),
-
-              // Testing shortcut
-              const SizedBox(height: 16),
-              Align(
-                alignment: Alignment.center,
-                child: TextButton(
-                  onPressed: () {
-                    Navigator.pushReplacementNamed(context, '/profile-form');
-                  },
-                  child: const Text(
-                    'For Testing: Go to Profile Form',
-                    style: TextStyle(
-                      color: Colors.grey,
-                      fontSize: 12,
-                    ),
-                  ),
                 ),
               ),
             ],

@@ -57,8 +57,8 @@ dependencies:
   # Tabler Icons
   tabler_icons: ^2.5.0+1
   
-  # Google Sign In
-  google_sign_in: ^6.1.6
+  # Google Sign In - temporarily removed due to dependency conflicts
+  # google_sign_in: ^6.1.6
   
   # Uni Links
   uni_links: ^0.5.1
@@ -71,6 +71,21 @@ dependencies:
   
   # HTTP
   http: ^1.2.0
+  shared_preferences: ^2.5.3
+  
+  # Interactive Charts
+  fl_chart: ^0.66.0
+  
+  # Push Notifications & Local Notifications - temporarily removed due to dependency conflicts
+  # firebase_core: ^2.24.2
+  # firebase_messaging: ^14.7.10
+  flutter_local_notifications: ^17.0.0
+  
+  # Background processing
+  workmanager: ^0.5.2
+  
+  # Permissions
+  permission_handler: ^11.2.0
 
 dev_dependencies:
   flutter_test:

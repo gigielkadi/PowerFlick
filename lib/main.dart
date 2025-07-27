@@ -18,6 +18,14 @@ import 'powerflick/mcp/presentation/pages/mcp_page.dart';
 import 'powerflick/home/presentation/pages/home_page.dart';
 import 'powerflick/home/presentation/pages/rooms_list_page.dart';
 import 'powerflick/auth/presentation/pages/choose_devices_page.dart';
+import 'powerflick/home/presentation/providers/home_providers.dart';
+import 'powerflick/settings/presentation/pages/settings_page.dart';
+import 'powerflick/billing/presentation/pages/bill_management_page.dart';
+import 'powerflick/billing/presentation/pages/bill_payment_page.dart';
+import 'powerflick/billing/presentation/pages/add_utility_provider_page.dart';
+import 'ai/presentation/pages/alerts_page.dart';
+import 'ai/presentation/pages/notification_settings_page.dart';
+import 'ai/services/ai_notification_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -28,9 +36,19 @@ void main() async {
     anonKey: KSupabase.anonKey,
   );
   
+  // Initialize AI Notification Service
+  final aiNotificationService = AiNotificationService();
+  await aiNotificationService.initialize();
+  
   runApp(
-    const ProviderScope(
-      child: PowerFlickApp(),
+    ProviderScope(
+      child: Consumer(
+        builder: (context, ref, child) {
+          // Initialize the channel cleanup provider
+          ref.watch(channelCleanupProvider);
+          return const PowerFlickApp();
+        },
+      ),
     ),
   );
 }
@@ -61,6 +79,11 @@ class PowerFlickApp extends StatelessWidget {
         '/home': (context) => const HomePage(),
         '/rooms': (context) => const RoomsListPage(),
         '/add-device': (context) => const ChooseDevicesPage(),
+        '/settings': (context) => const SettingsPage(),
+        '/bills': (context) => const BillManagementPage(),
+        '/add-utility': (context) => const AddUtilityProviderPage(),
+        '/alerts': (context) => const AlertsPage(),
+        '/notification-settings': (context) => const NotificationSettingsPage(),
       },
     );
   }

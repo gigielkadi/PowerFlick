@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../../core/constants/k_colors.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'scan_devices_page.dart';
 import 'connect_smart_plugs_page.dart';
 import 'choose_devices_page.dart';
 import 'setup_add_devices_page.dart';
@@ -17,32 +16,22 @@ class HomeSetupPage extends StatefulWidget {
 }
 
 class _HomeSetupPageState extends State<HomeSetupPage> {
-  final List<Map<String, dynamic>> _roomTypes = [
-    {'name': 'Bedroom', 'icon': Icons.bed, 'selected': false, 'count': 1},
-    {'name': 'Living room', 'icon': Icons.weekend, 'selected': false, 'count': 1},
-    {'name': 'Kitchen', 'icon': Icons.kitchen, 'selected': false, 'count': 1},
-    {'name': 'Bathroom', 'icon': Icons.bathtub, 'selected': false, 'count': 1},
-    {'name': 'Custom', 'icon': Icons.add, 'selected': false, 'count': 1},
-  ];
-
+  List<Map<String, dynamic>> _roomTypes = [];
   List<Map<String, dynamic>> _selectedRooms = [];
+  bool _loading = true;
 
   @override
   void initState() {
     super.initState();
-    // Initialize selected rooms based on default values
-    _updateSelectedRooms();
-    
-    // In a real app, you would fetch user data here
-    _fetchUserData();
+    _fetchRoomsFromDb();
   }
 
-  void _fetchUserData() async {
+  Future<void> _fetchRoomsFromDb() async {
     final user = Supabase.instance.client.auth.currentUser;
     if (user == null) return;
     final response = await Supabase.instance.client
         .from('rooms')
-        .select('type, name')
+        .select('type, name, id, user_id')
         .eq('user_id', user.id);
     // Group by type and count
     Map<String, int> roomCounts = {};
@@ -50,11 +39,15 @@ class _HomeSetupPageState extends State<HomeSetupPage> {
       roomCounts[room['type']] = (roomCounts[room['type']] ?? 0) + 1;
     }
     setState(() {
-      for (var room in _roomTypes) {
-        room['selected'] = roomCounts.containsKey(room['name']);
-        room['count'] = roomCounts[room['name']] ?? 1;
-      }
+      _roomTypes = [
+        {'name': 'Bedroom', 'icon': Icons.bed, 'selected': roomCounts['Bedroom'] != null, 'count': roomCounts['Bedroom'] ?? 1},
+        {'name': 'Living room', 'icon': Icons.weekend, 'selected': roomCounts['Living room'] != null, 'count': roomCounts['Living room'] ?? 1},
+        {'name': 'Kitchen', 'icon': Icons.kitchen, 'selected': roomCounts['Kitchen'] != null, 'count': roomCounts['Kitchen'] ?? 1},
+        {'name': 'Bathroom', 'icon': Icons.bathtub, 'selected': roomCounts['Bathroom'] != null, 'count': roomCounts['Bathroom'] ?? 1},
+        {'name': 'Custom', 'icon': Icons.add, 'selected': roomCounts['Custom'] != null, 'count': roomCounts['Custom'] ?? 1},
+      ];
       _updateSelectedRooms();
+      _loading = false;
     });
   }
 
@@ -90,9 +83,20 @@ class _HomeSetupPageState extends State<HomeSetupPage> {
 
   void _saveHomeSetup() async {
     final user = Supabase.instance.client.auth.currentUser;
-    if (user == null) return;
+    if (user == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('User not authenticated!')),
+      );
+      return;
+    }
     // Remove all previous rooms for this user
-    await Supabase.instance.client.from('rooms').delete().eq('user_id', user.id);
+    final deleteResponse = await Supabase.instance.client.from('rooms').delete().eq('user_id', user.id);
+    if (deleteResponse is PostgrestException) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Delete error: [31m${deleteResponse.message}[0m')),
+      );
+      return;
+    }
     // Insert new rooms, each with a unique name
     List<Map<String, dynamic>> roomsToInsert = [];
     for (var room in _selectedRooms) {
@@ -105,18 +109,32 @@ class _HomeSetupPageState extends State<HomeSetupPage> {
       }
     }
     if (roomsToInsert.isNotEmpty) {
-      await Supabase.instance.client.from('rooms').insert(roomsToInsert);
+      final insertResponse = await Supabase.instance.client.from('rooms').insert(roomsToInsert);
+      if (insertResponse is PostgrestException) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Insert error: [31m${insertResponse.message}[0m')),
+        );
+        return;
+      }
     }
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Home setup completed!')),
       );
-      Navigator.pushReplacementNamed(context, '/control-panel');
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (context) => SetupAddDevicesPage(userName: widget.userName)),
+      );
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    if (_loading) {
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
     final screenHeight = MediaQuery.of(context).size.height;
     final screenWidth = MediaQuery.of(context).size.width;
     
@@ -373,6 +391,7 @@ class _HomeSetupPageState extends State<HomeSetupPage> {
                                                         style: const TextStyle(
                                                           fontSize: 16,
                                                           fontWeight: FontWeight.w500,
+                                                          color: Colors.black87,
                                                         ),
                                                       ),
                                                     ),
@@ -439,14 +458,7 @@ class _HomeSetupPageState extends State<HomeSetupPage> {
                   width: double.infinity,
                   height: 50,
                   child: ElevatedButton(
-                    onPressed: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => const SmartDevicesAndAppliancesPage(),
-                        ),
-                      );
-                    },
+                    onPressed: _saveHomeSetup,
                     style: ElevatedButton.styleFrom(
                       backgroundColor: KColors.primary,
                       foregroundColor: Colors.white,

@@ -13,20 +13,31 @@ class HomeRepository {
   /// Fetch rooms from the database
   Future<List<Room>> getRooms() async {
     try {
-      final response = await _client.from('rooms').select('*');
-      
-      if (response.isEmpty) {
-        // If no rooms exist yet, seed with default data
-        await _seedDefaultRooms();
-        return Room.getDefaultRooms();
-      }
-      
+      final user = Supabase.instance.client.auth.currentUser;
+      if (user == null) return [];
+      final response = await _client
+          .from('rooms')
+          .select('*')
+          .eq('user_id', user.id);
+
       return response.map((json) => Room.fromJson(json)).toList().cast<Room>();
     } catch (e) {
       _logger.e('Error fetching rooms: $e');
-      // Return default rooms as fallback
-      return Room.getDefaultRooms();
+      return [];
     }
+  }
+  
+  /// Stream of rooms from the database
+  Stream<List<Room>> streamRooms() {
+    final user = Supabase.instance.client.auth.currentUser;
+    if (user == null) return Stream.value([]);
+    return _client
+        .from('rooms')
+        .stream(primaryKey: ['id'])
+        .eq('user_id', user.id)
+        .order('created_at')
+        .map((List<Map<String, dynamic>> data) =>
+            data.map((json) => Room.fromJson(json)).toList().cast<Room>());
   }
   
   /// Add a new room
@@ -70,11 +81,12 @@ class HomeRepository {
   
   /// Fetch devices for a room
   Future<List<Device>> getDevicesForRoom(String roomId) async {
+    print('[DEBUG] Fetching devices for roomId: ' + roomId);
     try {
       final response = await _client.from('devices')
-          .select('*')
+          .select('id, name, type, brand, model, is_on, is_smart, properties, status, total_power')
           .eq('room_id', roomId);
-      
+      print('[DEBUG] Devices fetched for roomId $roomId: ' + response.toString());
       return response.map((json) => Device.fromJson(json)).toList().cast<Device>();
     } catch (e) {
       _logger.e('Error fetching devices for room: $e');
@@ -82,10 +94,21 @@ class HomeRepository {
     }
   }
   
+  /// Stream of devices for a room
+  Stream<List<Device>> streamDevicesForRoom(String roomId) {
+    return _client
+        .from('devices')
+        .stream(primaryKey: ['id'])
+        .eq('room_id', roomId)
+        .order('created_at')
+        .map((List<Map<String, dynamic>> data) =>
+            data.map((json) => Device.fromJson(json)).toList().cast<Device>());
+  }
+  
   /// Fetch all devices
   Future<List<Device>> getAllDevices() async {
     try {
-      final response = await _client.from('devices').select('*');
+      final response = await _client.from('devices').select('id, name, type, brand, model, is_on, is_smart, properties, status, total_power');
       
       if (response.isEmpty) {
         // If no devices exist yet, seed with sample data
@@ -99,6 +122,16 @@ class HomeRepository {
       // Return sample devices as fallback
       return Device.getSampleDevices();
     }
+  }
+  
+  /// Stream of all devices
+  Stream<List<Device>> streamAllDevices() {
+    return _client
+        .from('devices')
+        .stream(primaryKey: ['id'])
+        .order('created_at')
+        .map((List<Map<String, dynamic>> data) =>
+            data.map((json) => Device.fromJson(json)).toList().cast<Device>());
   }
   
   /// Add a new device
@@ -150,6 +183,19 @@ class HomeRepository {
       return true;
     } catch (e) {
       _logger.e('Error deleting device: $e');
+      return false;
+    }
+  }
+  
+  /// Update device status (online/offline)
+  Future<bool> updateDeviceStatus(String deviceId, String status) async {
+    try {
+      await _client.from('devices')
+          .update({'status': status})
+          .eq('id', deviceId);
+      return true;
+    } catch (e) {
+      _logger.e('Error updating device status: $e');
       return false;
     }
   }

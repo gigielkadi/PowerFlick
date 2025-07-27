@@ -1,51 +1,35 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../home/presentation/providers/home_providers.dart';
+import '../../home/domain/models/room.dart';
+import '../../home/domain/models/device.dart';
 
-class RoomDetailPage extends StatefulWidget {
+class RoomDetailPage extends ConsumerStatefulWidget {
   final String roomName;
   
   const RoomDetailPage({super.key, required this.roomName});
 
   @override
-  State<RoomDetailPage> createState() => _RoomDetailPageState();
+  ConsumerState<RoomDetailPage> createState() => _RoomDetailPageState();
 }
 
-class _RoomDetailPageState extends State<RoomDetailPage> with SingleTickerProviderStateMixin {
-  late TabController _tabController;
-  late String _currentRoom;
-  
-  final List<String> rooms = ['Bedroom', 'Living Room', 'Kitchen', 'Bathroom'];
-
-  @override
-  void initState() {
-    super.initState();
-    _currentRoom = widget.roomName;
-    _tabController = TabController(
-      length: rooms.length,
-      vsync: this,
-      initialIndex: rooms.indexOf(_currentRoom),
-    );
-    
-    _tabController.addListener(() {
-      if (_tabController.indexIsChanging) {
-        setState(() {
-          _currentRoom = rooms[_tabController.index];
-        });
-      }
-    });
-  }
-
-  @override
-  void dispose() {
-    _tabController.dispose();
-    super.dispose();
-  }
+class _RoomDetailPageState extends ConsumerState<RoomDetailPage> with SingleTickerProviderStateMixin {
+  int _selectedRoomIndex = 0;
 
   @override
   Widget build(BuildContext context) {
+    final roomsAsync = ref.watch(roomsProvider);
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
-        title: Text(_currentRoom, style: const TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
+        title: roomsAsync.when(
+          data: (rooms) => Text(
+            rooms.isNotEmpty ? rooms[_selectedRoomIndex].name : '',
+            style: const TextStyle(color: Colors.black, fontWeight: FontWeight.bold),
+          ),
+          loading: () => const Text('', style: TextStyle(color: Colors.black)),
+          error: (e, _) => const Text('', style: TextStyle(color: Colors.black)),
+        ),
         centerTitle: true,
         backgroundColor: Colors.white,
         elevation: 0,
@@ -53,37 +37,148 @@ class _RoomDetailPageState extends State<RoomDetailPage> with SingleTickerProvid
           icon: const Icon(Icons.arrow_back, color: Colors.black),
           onPressed: () => Navigator.pop(context),
         ),
-        bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(48),
-          child: Align(
-            alignment: Alignment.centerLeft,
-            child: TabBar(
-              controller: _tabController,
-              isScrollable: true,
-              labelColor: const Color(0xFF4CAF50),
-              unselectedLabelColor: Colors.grey,
-              indicatorColor: const Color(0xFF4CAF50),
-              indicatorWeight: 3,
-              indicatorSize: TabBarIndicatorSize.label,
-              tabs: rooms.map((room) => Tab(text: room)).toList(),
-            ),
-          ),
-        ),
       ),
-      body: SafeArea(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Expanded(
-              child: TabBarView(
-                controller: _tabController,
-                children: rooms.map((room) {
-                  return _buildRoomDevices(room);
-                }).toList(),
+      body: roomsAsync.when(
+        loading: () => const Center(child: CircularProgressIndicator()),
+        error: (e, _) => Center(child: Text('Error: $e')),
+        data: (rooms) {
+          if (rooms.isEmpty) {
+            return const Center(child: Text('No rooms found'));
+          }
+          final selectedRoom = rooms[_selectedRoomIndex];
+          final devicesAsync = ref.watch(roomDevicesProvider(selectedRoom.id));
+          Widget roomSelector = Container(
+            padding: const EdgeInsets.only(left: 8, right: 8, top: 8, bottom: 0),
+            child: SizedBox(
+              height: 56,
+              child: ListView.builder(
+                scrollDirection: Axis.horizontal,
+                itemCount: rooms.length,
+                itemBuilder: (context, index) {
+                  final isSelected = _selectedRoomIndex == index;
+                  return GestureDetector(
+                    onTap: () {
+                      setState(() {
+                        _selectedRoomIndex = index;
+                      });
+                    },
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 200),
+                      margin: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+                      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: isSelected ? const Color(0xFF4CAF50).withOpacity(0.12) : Colors.transparent,
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            rooms[index].name,
+                            style: TextStyle(
+                              color: isSelected ? const Color(0xFF4CAF50) : Colors.grey[700],
+                              fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                              fontSize: 16,
+                            ),
+                          ),
+                          if (isSelected)
+                            Container(
+                              margin: const EdgeInsets.only(top: 2),
+                              height: 3,
+                              width: 32,
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF4CAF50),
+                                borderRadius: BorderRadius.circular(2),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                  );
+                },
               ),
             ),
-          ],
-        ),
+          );
+          return SingleChildScrollView(
+            padding: const EdgeInsets.only(bottom: 32),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                roomSelector,
+                const Divider(height: 1, thickness: 1, color: Color(0xFFF2F2F2)),
+                const SizedBox(height: 12),
+                // All Devices row
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text(
+                        'All Devices',
+                        style: TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.black,
+                        ),
+                      ),
+                      TextButton.icon(
+                        onPressed: () {},
+                        icon: const Text(
+                          'New Device',
+                          style: TextStyle(
+                            color: Color(0xFF4CAF50),
+                            fontWeight: FontWeight.bold,
+                            fontSize: 15,
+                          ),
+                        ),
+                        label: const Icon(
+                          Icons.add,
+                          color: Color(0xFF4CAF50),
+                          size: 20,
+                        ),
+                        style: TextButton.styleFrom(
+                          foregroundColor: const Color(0xFF4CAF50),
+                          padding: const EdgeInsets.symmetric(horizontal: 8),
+                          minimumSize: const Size(0, 36),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 16),
+                // Device grid
+                devicesAsync.when(
+                  loading: () => const Center(child: CircularProgressIndicator()),
+                  error: (e, _) => Center(child: Text('Error: $e')),
+                  data: (devices) {
+                    if (devices.isEmpty) {
+                      return const Center(child: Text('No devices in this room'));
+                    }
+                    return Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      child: GridView.builder(
+                        shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
+                        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: 2,
+                          crossAxisSpacing: 16,
+                          mainAxisSpacing: 16,
+                          childAspectRatio: 0.95,
+                        ),
+                        itemCount: devices.length,
+                        itemBuilder: (context, index) {
+                          final device = devices[index];
+                          return _buildDeviceItem(device);
+                        },
+                      ),
+                    );
+                  },
+                ),
+                const SizedBox(height: 32),
+              ],
+            ),
+          );
+        },
       ),
       bottomNavigationBar: BottomAppBar(
         color: Colors.white,
@@ -104,140 +199,94 @@ class _RoomDetailPageState extends State<RoomDetailPage> with SingleTickerProvid
     );
   }
   
-  Widget _buildRoomDevices(String roomName) {
-    List<Map<String, dynamic>> devices = _getDevicesForRoom(roomName);
-    
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              const Text(
-                'All Devices',
-                style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.black,
-                ),
-              ),
-              TextButton.icon(
-                onPressed: () {},
-                icon: const Text(
-                  'New Device',
-                  style: TextStyle(
-                    color: Color(0xFF4CAF50),
-                  ),
-                ),
-                label: const Icon(
-                  Icons.add,
-                  color: Color(0xFF4CAF50),
-                  size: 20,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 20),
-          GridView.builder(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 2,
-              crossAxisSpacing: 16,
-              mainAxisSpacing: 16,
-              childAspectRatio: 1.1,
-            ),
-            itemCount: devices.length,
-            itemBuilder: (context, index) {
-              return _buildDeviceItem(
-                devices[index]['name'],
-                devices[index]['icon'],
-                devices[index]['isOn'],
-                devices[index]['hasSlider'],
-              );
-            },
-          ),
-        ],
-      ),
-    );
-  }
-  
-  Widget _buildDeviceItem(String name, IconData icon, bool isOn, bool hasSlider) {
+  Widget _buildDeviceItem(Device device) {
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: Colors.grey.withOpacity(0.1),
-            spreadRadius: 1,
-            blurRadius: 4,
-            offset: const Offset(0, 2),
+            color: Colors.black.withOpacity(0.06),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
           ),
         ],
       ),
       child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Image.asset(
-                  _getDeviceImage(name),
-                  width: 40,
-                  height: 40,
-                  errorBuilder: (context, error, stackTrace) {
-                    return Icon(
-                      icon,
-                      size: 30,
-                      color: Colors.black54,
-                    );
-                  },
-                ),
-                Switch(
-                  value: isOn,
-                  onChanged: (value) {},
-                  activeColor: Colors.white,
-                  activeTrackColor: const Color(0xFF4CAF50),
-                  inactiveTrackColor: Colors.grey.shade300,
-                  inactiveThumbColor: Colors.white,
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            Text(
-              name,
-              style: const TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w500,
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        child: SingleChildScrollView(
+          physics: const NeverScrollableScrollPhysics(),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Icon(
+                _getDeviceIcon(device.type),
+                size: 40,
+                color: Colors.black87,
               ),
-            ),
-            if (hasSlider)
-              SizedBox(
-                height: 30,
-                child: SliderTheme(
-                  data: SliderThemeData(
-                    thumbColor: const Color(0xFF4CAF50),
-                    activeTrackColor: const Color(0xFF4CAF50),
-                    inactiveTrackColor: Colors.grey.shade200,
-                    trackHeight: 4,
-                    thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 8),
-                  ),
-                  child: Slider(
-                    value: 0.7,
-                    onChanged: (value) {},
-                  ),
+              const SizedBox(height: 12),
+              Text(
+                device.name,
+                style: const TextStyle(
+                  fontSize: 17,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.black,
                 ),
+                textAlign: TextAlign.center,
               ),
-          ],
+              const SizedBox(height: 12),
+              Switch(
+                value: (device.status ?? 'offline') == 'online',
+                onChanged: (value) {
+                  final rooms = ref.read(roomsProvider).asData?.value ?? [];
+                  final selectedRoomId = rooms.isNotEmpty ? rooms[_selectedRoomIndex].id : null;
+                  if (selectedRoomId != null) {
+                    ref.read(updateDeviceStatusProvider({
+                      'deviceId': device.id,
+                      'status': value ? 'online' : 'offline',
+                      'roomId': selectedRoomId,
+                    }));
+                  }
+                },
+                activeColor: Colors.white,
+                activeTrackColor: const Color(0xFF4CAF50),
+                inactiveTrackColor: Colors.grey.shade300,
+                inactiveThumbColor: Colors.white,
+              ),
+            ],
+          ),
         ),
       ),
     );
+  }
+  
+  IconData _getDeviceIcon(String type) {
+    switch (type.toLowerCase()) {
+      case 'lamp':
+        return Icons.lightbulb_outline;
+      case 'ac':
+        return Icons.ac_unit;
+      case 'charger':
+        return Icons.electrical_services;
+      case 'computer':
+        return Icons.computer;
+      case 'fridge':
+        return Icons.kitchen;
+      case 'microwave':
+        return Icons.microwave;
+      case 'coffee maker':
+        return Icons.coffee;
+      case 'tv':
+        return Icons.tv;
+      case 'fan':
+        return Icons.toys;
+      case 'lights':
+        return Icons.light;
+      default:
+        return Icons.devices_other;
+    }
   }
   
   Widget _buildNavItem(IconData icon, String label, bool isSelected) {
@@ -259,54 +308,5 @@ class _RoomDetailPageState extends State<RoomDetailPage> with SingleTickerProvid
         ),
       ],
     );
-  }
-  
-  String _getDeviceImage(String name) {
-    switch (name.toLowerCase()) {
-      case 'lamp':
-        return 'assets/illustrations/lamp.png';
-      case 'charger':
-        return 'assets/illustrations/charger.png';
-      case 'computer':
-        return 'assets/illustrations/computer.png';
-      case 'ac':
-        return 'assets/illustrations/ac.png';
-      case 'lights':
-        return 'assets/illustrations/lights.png';
-      default:
-        return '';
-    }
-  }
-  
-  List<Map<String, dynamic>> _getDevicesForRoom(String roomName) {
-    switch (roomName) {
-      case 'Bedroom':
-        return [
-          {'name': 'Lamp', 'icon': Icons.lightbulb_outline, 'isOn': true, 'hasSlider': true},
-          {'name': 'Charger', 'icon': Icons.electrical_services, 'isOn': true, 'hasSlider': false},
-          {'name': 'Computer', 'icon': Icons.computer, 'isOn': false, 'hasSlider': false},
-          {'name': 'AC', 'icon': Icons.ac_unit, 'isOn': true, 'hasSlider': false},
-          {'name': 'Lights', 'icon': Icons.light, 'isOn': true, 'hasSlider': true},
-        ];
-      case 'Living Room':
-        return [
-          {'name': 'TV', 'icon': Icons.tv, 'isOn': true, 'hasSlider': false},
-          {'name': 'Lights', 'icon': Icons.light, 'isOn': true, 'hasSlider': true},
-          {'name': 'AC', 'icon': Icons.ac_unit, 'isOn': false, 'hasSlider': false},
-        ];
-      case 'Kitchen':
-        return [
-          {'name': 'Fridge', 'icon': Icons.kitchen, 'isOn': true, 'hasSlider': false},
-          {'name': 'Lights', 'icon': Icons.light, 'isOn': true, 'hasSlider': true},
-          {'name': 'Microwave', 'icon': Icons.microwave, 'isOn': false, 'hasSlider': false},
-        ];
-      case 'Bathroom':
-        return [
-          {'name': 'Lights', 'icon': Icons.light, 'isOn': true, 'hasSlider': true},
-          {'name': 'Water Heater', 'icon': Icons.hot_tub, 'isOn': false, 'hasSlider': false},
-        ];
-      default:
-        return [];
-    }
   }
 } 

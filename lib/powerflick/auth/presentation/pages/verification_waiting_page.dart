@@ -92,11 +92,7 @@ class VerificationWaitingPage extends StatelessWidget {
                   height: 56,
                   child: FilledButton(
                     onPressed: () {
-                      Navigator.of(context).pushReplacement(
-                        MaterialPageRoute(
-                          builder: (context) => const SubscriptionPlanPage(),
-                        ),
-                      );
+                      Navigator.of(context).pushReplacementNamed('/profile-form');
                     },
                     style: FilledButton.styleFrom(
                       backgroundColor: Color(0xFF4CD964),
@@ -129,13 +125,6 @@ class VerificationWaitingPage extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: KSize.xl),
-                Center(
-                  child: Image.asset(
-                    'assets/illustrations/email_verification.png',
-                    height: 200,
-                    fit: BoxFit.contain,
-                  ),
-                ),
               ],
             ),
           ),
